@@ -449,13 +449,13 @@ function render2D() {
   }
 
   .semantic-legend-bar {
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    bottom: 12px;
     padding: 0.25rem 0.6rem;
     gap: var(--spacing-2);
   }
 
   .webgl-error-banner {
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    bottom: 12px;
   }
 
   .legend-chip-label {

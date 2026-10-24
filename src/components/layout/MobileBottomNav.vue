@@ -57,20 +57,16 @@ const primaryNav = [
 @media (max-width: 768px) {
   .mobile-bottom-nav {
     display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    width: 100%;
+    flex-shrink: 0;
     height: calc(56px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--bg-surface);
     border-top: 1px solid var(--border-light);
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
-    z-index: 90;
+    z-index: 50;
     align-items: center;
     justify-content: space-around;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
   }
 
   .mobile-nav-item {

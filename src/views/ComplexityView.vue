@@ -127,6 +127,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Espaçador garantido de respiro inferior no final da rolagem -->
+    <div class="scroll-bottom-spacer"></div>
   </div>
 </template>
 

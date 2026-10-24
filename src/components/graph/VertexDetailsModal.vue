@@ -230,7 +230,7 @@ function handleRemove() {
 @media (max-width: 768px) {
   .vertex-details-panel {
     top: auto;
-    bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+    bottom: var(--spacing-3);
     left: var(--spacing-3);
     right: var(--spacing-3);
     width: auto;
