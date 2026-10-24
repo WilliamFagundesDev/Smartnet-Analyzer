@@ -228,6 +228,7 @@
 @media (max-width: 768px) {
   .complexity-view {
     padding: var(--spacing-3);
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px));
     gap: var(--spacing-3);
   }
 

@@ -56,8 +56,10 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .app-shell {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  min-height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -67,12 +69,14 @@ onBeforeUnmount(() => {
 .app-main-body {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }
 
 .app-content {
   flex: 1;
+  min-height: 0;
   height: 100%;
   overflow: hidden;
   background-color: var(--bg-primary);
@@ -81,7 +85,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 768px) {
   .app-content {
-    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 0;
   }
 }
 </style>

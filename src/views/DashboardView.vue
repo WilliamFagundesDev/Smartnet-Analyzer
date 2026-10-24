@@ -237,6 +237,8 @@ function handleQuickRun(algo) {
   overflow: hidden;
   position: relative;
   background: var(--bg-surface);
+  min-height: 440px;
+  height: 440px;
 }
 
 .panel-top-bar {
@@ -374,8 +376,9 @@ function handleQuickRun(algo) {
 }
 
 @media (max-width: 768px) {
-  .view-container {
+  .dashboard-view {
     padding: var(--spacing-3);
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px));
     gap: var(--spacing-3);
   }
 
@@ -408,8 +411,26 @@ function handleQuickRun(algo) {
     padding: var(--spacing-3);
   }
 
+  .metric-name {
+    font-size: 0.65rem;
+    line-height: 1.25;
+    word-break: break-word;
+  }
+
   .metric-number {
     font-size: 1.25rem;
+  }
+
+  .metric-hint {
+    font-size: 0.68rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .canvas-panel {
+    min-height: 330px;
+    height: 330px;
   }
 
   .canvas-wrapper {

@@ -524,7 +524,7 @@ function copyTextResults() {
 .path-sequence {
   font-size: var(--text-base);
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .path-cost {
@@ -579,5 +579,31 @@ function copyTextResults() {
 
 .ml-2 {
   margin-left: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .summary-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-2);
+  }
+
+  .summary-card {
+    padding: var(--spacing-2);
+  }
+
+  .card-val {
+    font-size: var(--text-sm);
+  }
+
+  .results-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 </style>

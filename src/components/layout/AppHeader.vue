@@ -209,5 +209,9 @@ const { toggleMobileDrawer } = useMobileNav()
   .mobile-menu-btn {
     display: flex;
   }
+
+  .brand-title .text-blue {
+    display: none;
+  }
 }
 </style>
