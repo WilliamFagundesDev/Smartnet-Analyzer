@@ -190,4 +190,10 @@ function handleSelectPreset(id) {
   width: 15px;
   height: 15px;
 }
+
+@media (max-width: 768px) {
+  .app-sidebar {
+    display: none;
+  }
+}
 </style>

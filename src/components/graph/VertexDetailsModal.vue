@@ -189,7 +189,8 @@ function handleRemove() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
   padding: 0.25rem 0.45rem;
   border-radius: var(--radius-sm);
 }
@@ -224,5 +225,30 @@ function handleRemove() {
 .icon-sm {
   width: 16px;
   height: 16px;
+}
+
+@media (max-width: 768px) {
+  .vertex-details-panel {
+    top: auto;
+    bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+    left: var(--spacing-3);
+    right: var(--spacing-3);
+    width: auto;
+    max-width: unset;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.2);
+    animation: slideUpDetails 200ms ease-out;
+  }
+
+  @keyframes slideUpDetails {
+    from {
+      transform: translateY(30px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
 }
 </style>

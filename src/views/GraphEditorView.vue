@@ -478,4 +478,52 @@ function getTypeBadge(type) {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 768px) {
+  .editor-view {
+    padding: var(--spacing-3);
+    gap: var(--spacing-3);
+  }
+
+  .view-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+  }
+
+  .header-actions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+
+  .header-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .config-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-3);
+    padding: var(--spacing-3);
+  }
+
+  .config-col {
+    width: 100%;
+  }
+
+  .toggle-group {
+    display: flex;
+    width: 100%;
+  }
+
+  .toggle-btn {
+    flex: 1;
+    font-size: 0.68rem;
+    padding: 0.4rem 0.2rem;
+    text-align: center;
+  }
+}
 </style>

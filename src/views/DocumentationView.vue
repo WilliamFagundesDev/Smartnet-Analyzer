@@ -189,7 +189,7 @@
 }
 
 .info-item {
-  background: rgba(6, 9, 19, 0.6);
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: var(--spacing-3);
@@ -300,7 +300,18 @@
 .text-amber { color: var(--color-warning); }
 
 @media (max-width: 768px) {
-  .info-grid {
+  .documentation-view {
+    padding: var(--spacing-3);
+    gap: var(--spacing-3);
+  }
+
+  .doc-section {
+    padding: var(--spacing-4);
+  }
+
+  .info-grid,
+  .metaphor-grid,
+  .steps-flow {
     grid-template-columns: 1fr;
   }
 }

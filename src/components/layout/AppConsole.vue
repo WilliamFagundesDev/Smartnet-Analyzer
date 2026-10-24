@@ -210,4 +210,10 @@ function copyLogs() {
 .text-blue {
   color: var(--color-primary);
 }
+
+@media (max-width: 768px) {
+  .app-console {
+    display: none;
+  }
+}
 </style>

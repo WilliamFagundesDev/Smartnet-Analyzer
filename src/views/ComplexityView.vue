@@ -166,7 +166,7 @@
 
 .card-header-bar {
   padding: var(--spacing-3) var(--spacing-4);
-  background: rgba(11, 17, 32, 0.95);
+  background: var(--bg-card);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -224,4 +224,19 @@
 .text-blue { color: var(--color-primary); }
 .text-purple { color: var(--color-purple); }
 .text-green { color: var(--color-success); }
+
+@media (max-width: 768px) {
+  .complexity-view {
+    padding: var(--spacing-3);
+    gap: var(--spacing-3);
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-card {
+    padding: var(--spacing-3);
+  }
+}
 </style>

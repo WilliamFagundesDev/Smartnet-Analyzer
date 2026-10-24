@@ -430,4 +430,41 @@ function render2D() {
   width: 15px;
   height: 15px;
 }
+
+@media (max-width: 600px) {
+  .canvas-toolbar {
+    top: var(--spacing-2);
+    left: var(--spacing-2);
+    max-width: calc(100% - 16px);
+    overflow-x: auto;
+    padding: 0.2rem 0.35rem;
+  }
+
+  .tool-btn span {
+    display: none;
+  }
+
+  .tool-btn {
+    padding: 0.4rem;
+  }
+
+  .semantic-legend-bar {
+    bottom: var(--spacing-2);
+    padding: 0.25rem 0.6rem;
+    gap: var(--spacing-2);
+  }
+
+  .legend-chip-label {
+    display: none;
+  }
+
+  .legend-chip-item {
+    gap: 0;
+  }
+
+  .legend-color-dot {
+    width: 12px;
+    height: 12px;
+  }
+}
 </style>

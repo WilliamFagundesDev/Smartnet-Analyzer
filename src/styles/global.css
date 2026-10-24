@@ -277,3 +277,23 @@ button:disabled {
     scroll-behavior: auto !important;
   }
 }
+
+/* Responsividade Geral para Modais e Telas Compactas */
+@media (max-width: 600px) {
+  .modal-box {
+    padding: var(--spacing-4) !important;
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+    border-radius: var(--radius-lg) !important;
+    width: 95% !important;
+  }
+
+  .modal-overlay {
+    padding: var(--spacing-2) !important;
+  }
+
+  .table-container {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+

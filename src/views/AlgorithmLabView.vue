@@ -134,4 +134,19 @@ const { currentStepIndex, events } = useAlgorithmRunner()
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 768px) {
+  .algorithm-lab-view {
+    padding: var(--spacing-3);
+    gap: var(--spacing-3);
+  }
+
+  .visualizer-card {
+    min-height: 320px;
+  }
+
+  .canvas-box {
+    min-height: 280px;
+  }
+}
 </style>

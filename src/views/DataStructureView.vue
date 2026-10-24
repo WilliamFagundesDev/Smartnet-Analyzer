@@ -183,4 +183,34 @@ const activeTab = ref('list')
 .font-bold {
   font-weight: 700;
 }
+
+@media (max-width: 768px) {
+  .data-structure-view {
+    padding: var(--spacing-3);
+    gap: var(--spacing-3);
+  }
+
+  .view-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+  }
+
+  .tab-pill-group {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    padding: 0.2rem;
+  }
+
+  .pill-btn {
+    white-space: nowrap;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.72rem;
+  }
+
+  .compare-card {
+    padding: var(--spacing-3);
+  }
+}
 </style>

@@ -44,6 +44,12 @@ export class ThreeSceneManager {
     this.raycaster = new THREE.Raycaster()
     this.mouse = new THREE.Vector2()
 
+    // Suporte a Gestos Touch Mobile
+    this.previousTouchPosition = { x: 0, y: 0 }
+    this.initialPinchDistance = null
+    this.touchHasMovedSignificantly = false
+    this.lastTouchCoords = { clientX: 0, clientY: 0 }
+
     this.init()
   }
 
@@ -110,13 +116,78 @@ export class ThreeSceneManager {
     this._onContextMenu = e => e.preventDefault()
     this._onResize = this.onWindowResize.bind(this)
 
+    this._onTouchStart = this.onTouchStart.bind(this)
+    this._onTouchMove = this.onTouchMove.bind(this)
+    this._onTouchEnd = this.onTouchEnd.bind(this)
+
     const dom = this.renderer.domElement
+    dom.style.touchAction = 'none'
     dom.addEventListener('mousedown', this._onMouseDown)
     window.addEventListener('mousemove', this._onMouseMove)
     window.addEventListener('mouseup', this._onMouseUp)
     dom.addEventListener('wheel', this._onWheel, { passive: false })
     dom.addEventListener('contextmenu', this._onContextMenu)
     window.addEventListener('resize', this._onResize)
+
+    // Touch events para dispositivos móveis
+    dom.addEventListener('touchstart', this._onTouchStart, { passive: false })
+    dom.addEventListener('touchmove', this._onTouchMove, { passive: false })
+    dom.addEventListener('touchend', this._onTouchEnd, { passive: false })
+  }
+
+  onTouchStart(e) {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0]
+      this.previousTouchPosition = { x: touch.clientX, y: touch.clientY }
+      this.lastTouchCoords = { clientX: touch.clientX, clientY: touch.clientY }
+      this.touchHasMovedSignificantly = false
+      this.initialPinchDistance = null
+    } else if (e.touches.length === 2) {
+      const t1 = e.touches[0]
+      const t2 = e.touches[1]
+      this.initialPinchDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY)
+    }
+  }
+
+  onTouchMove(e) {
+    if (e.cancelable) e.preventDefault()
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0]
+      this.lastTouchCoords = { clientX: touch.clientX, clientY: touch.clientY }
+      const deltaX = touch.clientX - this.previousTouchPosition.x
+      const deltaY = touch.clientY - this.previousTouchPosition.y
+
+      if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+        this.touchHasMovedSignificantly = true
+      }
+
+      this.spherical.theta -= deltaX * 0.009
+      this.spherical.phi -= deltaY * 0.009
+      this.spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.spherical.phi))
+      this.updateCameraPosition()
+
+      this.previousTouchPosition = { x: touch.clientX, y: touch.clientY }
+    } else if (e.touches.length === 2) {
+      this.touchHasMovedSignificantly = true
+      const t1 = e.touches[0]
+      const t2 = e.touches[1]
+      const currentDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY)
+
+      if (this.initialPinchDistance) {
+        const factor = this.initialPinchDistance / currentDistance
+        this.spherical.radius = Math.max(15, Math.min(250, this.spherical.radius * factor))
+        this.updateCameraPosition()
+      }
+      this.initialPinchDistance = currentDistance
+    }
+  }
+
+  onTouchEnd(e) {
+    if (!this.touchHasMovedSignificantly && this.lastTouchCoords.clientX) {
+      this.performRaycast(this.lastTouchCoords)
+    }
+    this.initialPinchDistance = null
   }
 
   onMouseDown(e) {
@@ -632,6 +703,9 @@ export class ThreeSceneManager {
       dom.removeEventListener('wheel', this._onWheel)
       dom.removeEventListener('contextmenu', this._onContextMenu)
       window.removeEventListener('resize', this._onResize)
+      dom.removeEventListener('touchstart', this._onTouchStart)
+      dom.removeEventListener('touchmove', this._onTouchMove)
+      dom.removeEventListener('touchend', this._onTouchEnd)
       if (dom.parentNode) {
         dom.parentNode.removeChild(dom)
       }

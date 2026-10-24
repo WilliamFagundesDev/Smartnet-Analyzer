@@ -37,19 +37,30 @@
         <Power class="icon-sm" />
         <span>Encerrar Sessão</span>
       </button>
+
+      <!-- Botão de Menu para Mobile -->
+      <button
+        class="btn btn-ghost mobile-menu-btn"
+        @click="toggleMobileDrawer"
+        title="Abrir Menu de Navegação e Exemplos"
+      >
+        <Menu class="icon-md" />
+      </button>
     </div>
   </header>
 </template>
 
 <script setup>
-import { Activity, Power, Sun, Moon } from 'lucide-vue-next'
+import { Activity, Power, Sun, Moon, Menu } from 'lucide-vue-next'
 import { useGraph } from '../../composables/useGraph.js'
 import { useAppLifecycle } from '../../composables/useAppLifecycle.js'
 import { useTheme } from '../../composables/useTheme.js'
+import { useMobileNav } from '../../composables/useMobileNav.js'
 
 const { graph, metrics } = useGraph()
 const { requestTermination } = useAppLifecycle()
 const { theme, toggleTheme } = useTheme()
+const { toggleMobileDrawer } = useMobileNav()
 </script>
 
 <style scoped>
@@ -160,5 +171,43 @@ const { theme, toggleTheme } = useTheme()
 .icon-sm {
   width: 15px;
   height: 15px;
+}
+
+.icon-md {
+  width: 20px;
+  height: 20px;
+}
+
+.mobile-menu-btn {
+  display: none;
+  padding: 0.35rem;
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0 var(--spacing-3);
+  }
+
+  .graph-tag {
+    display: none;
+  }
+
+  .btn-shutdown {
+    display: none;
+  }
+
+  .theme-text {
+    display: none;
+  }
+
+  .btn-theme-toggle {
+    padding: 0.35rem;
+    border-radius: var(--radius-md);
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+  }
 }
 </style>

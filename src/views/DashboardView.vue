@@ -372,4 +372,48 @@ function handleQuickRun(algo) {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 768px) {
+  .view-container {
+    padding: var(--spacing-3);
+    gap: var(--spacing-3);
+  }
+
+  .view-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+  }
+
+  .header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-2);
+  }
+
+  .header-actions .btn {
+    width: 100%;
+    justify-content: center;
+    font-size: var(--text-xs);
+    padding: 0.45rem;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-2);
+  }
+
+  .metric-card {
+    padding: var(--spacing-3);
+  }
+
+  .metric-number {
+    font-size: 1.25rem;
+  }
+
+  .canvas-wrapper {
+    min-height: 280px;
+  }
+}
 </style>

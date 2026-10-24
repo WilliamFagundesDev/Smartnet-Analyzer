@@ -506,8 +506,63 @@ function getStepBadgeClass(type) {
 .icon-sm { width: 16px; height: 16px; }
 
 @media (max-width: 768px) {
+  .algorithm-controls {
+    padding: var(--spacing-3);
+    gap: var(--spacing-3);
+  }
+
   .algo-segmented-bar {
     grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-1);
+  }
+
+  .algo-pill-btn {
+    padding: 0.5rem 0.4rem;
+  }
+
+  .pill-title {
+    font-size: var(--text-xs);
+  }
+
+  .pill-sub {
+    font-size: 0.65rem;
+  }
+
+  .params-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-2);
+  }
+
+  .param-item {
+    width: 100%;
+  }
+
+  .action-buttons-group {
+    flex-direction: column;
+    width: 100%;
+    gap: var(--spacing-2);
+  }
+
+  .action-buttons-group .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .step-player-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-3);
+    padding: var(--spacing-2);
+  }
+
+  .player-controls {
+    justify-content: center;
+  }
+
+  .player-progress {
+    min-width: unset;
+    width: 100%;
   }
 }
 </style>
