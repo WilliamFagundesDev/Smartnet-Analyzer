@@ -1,38 +1,62 @@
 <template>
   <div class="graph-canvas-container" ref="containerRef">
-    <!-- Barra Flutuante de Ferramentas Compacta e Essencial -->
-    <div class="canvas-toolbar">
-      <div class="toolbar-group">
+    <!-- Toolbar Flutuante em Cápsula Minimalista -->
+    <div class="canvas-glass-toolbar">
+      <div class="toolbar-mode-switch">
         <button
-          class="tool-btn"
+          class="mode-btn"
           :class="{ active: viewMode === '3D' }"
           @click="setViewMode('3D')"
-          title="Visualização Espacial 3D"
+          title="Modo Espacial 3D (WebGL)"
+          aria-label="Ativar visualização 3D"
         >
-          <Box class="icon-sm" />
+          <Box class="icon-xs" />
           <span>3D</span>
         </button>
         <button
-          class="tool-btn"
+          class="mode-btn"
           :class="{ active: viewMode === '2D' }"
           @click="setViewMode('2D')"
-          title="Visualização em Plano 2D"
+          title="Modo Plano 2D (Canvas)"
+          aria-label="Ativar visualização 2D"
         >
-          <Layers class="icon-sm" />
+          <Layers class="icon-xs" />
           <span>2D</span>
         </button>
       </div>
 
-      <div class="toolbar-sep"></div>
+      <div class="toolbar-divider"></div>
 
-      <div class="toolbar-group">
-        <button class="tool-btn" @click="fitCamera" title="Centralizar e enquadrar nós da rede">
-          <Maximize2 class="icon-sm" />
-          <span>Centralizar</span>
+      <div class="toolbar-actions">
+        <button
+          class="action-icon-btn"
+          @click="fitCamera"
+          title="Enquadrar e centralizar grafo"
+          aria-label="Centralizar câmera"
+        >
+          <Maximize2 class="icon-xs" />
+          <span class="btn-text">Centralizar</span>
         </button>
-        <button class="tool-btn" @click="reorganizeLayout" title="Distribuir nós harmonicamente">
-          <Sparkles class="icon-sm" />
-          <span>Organizar</span>
+
+        <button
+          class="action-icon-btn"
+          @click="reorganizeLayout"
+          title="Rearranjar nós via simulação de física 3D"
+          aria-label="Rearranjar layout"
+        >
+          <Sparkles class="icon-xs" />
+          <span class="btn-text">Organizar</span>
+        </button>
+
+        <button
+          v-if="viewMode === '3D'"
+          class="action-icon-btn"
+          :class="{ active: isAutoRotating }"
+          @click="toggleAutoRotate"
+          title="Alternar rotação contínua da câmera"
+          aria-label="Alternar rotação contínua"
+        >
+          <RotateCw class="icon-xs" />
         </button>
       </div>
     </div>
@@ -44,43 +68,56 @@
       ref="viewportRef"
     ></div>
 
-    <!-- Fallback / Modo 2D Canvas -->
+    <!-- Viewport Fallback 2D Canvas -->
     <div v-show="viewMode === '2D' || webglError" class="fallback-2d-viewport">
       <canvas ref="canvas2DRef" class="canvas-2d"></canvas>
     </div>
 
-    <!-- Faixa Permanente de Identificação Semântica das Cores -->
-    <div class="semantic-legend-bar">
-      <div class="legend-chip-item" title="Elemento sendo avaliado ou expandido no passo atual">
-        <span class="legend-color-dot dot-amber"></span>
-        <span class="legend-chip-label">Atual (Processando)</span>
-      </div>
-      <div class="legend-chip-item" title="Vértice visitado ou aresta aceita na Árvore/AGM">
-        <span class="legend-color-dot dot-green"></span>
-        <span class="legend-chip-label">Visitado / Árvore</span>
-      </div>
-      <div class="legend-chip-item" title="Vértice descoberto aguardando na fila FIFO ou Min-Heap">
-        <span class="legend-color-dot dot-purple"></span>
-        <span class="legend-chip-label">Fila / Min-Heap</span>
-      </div>
-      <div class="legend-chip-item" title="Conexão integrante do menor caminho ótimo calculado">
-        <span class="legend-color-dot dot-blue"></span>
-        <span class="legend-chip-label">Menor Caminho</span>
-      </div>
-      <div class="legend-chip-item" title="Aresta descartada por formar ciclo (Kruskal)">
-        <span class="legend-color-dot dot-red"></span>
-        <span class="legend-chip-label">Ciclo Rejeitado</span>
-      </div>
-      <div class="legend-chip-item" title="Vértice ou aresta ainda em repouso">
-        <span class="legend-color-dot dot-slate"></span>
-        <span class="legend-chip-label">Não Visitado</span>
+    <!-- Legenda Semântica Flutuante Discreta (Expansível) -->
+    <div class="floating-legend-capsule" :class="{ 'is-expanded': isLegendExpanded }">
+      <button
+        class="legend-toggle-pill"
+        @click="isLegendExpanded = !isLegendExpanded"
+        title="Alternar legenda de cores semânticas"
+      >
+        <span class="legend-indicator-dot"></span>
+        <span class="legend-btn-label">Legenda de Cores</span>
+        <ChevronUp v-if="!isLegendExpanded" class="icon-xs" />
+        <ChevronDown v-else class="icon-xs" />
+      </button>
+
+      <div v-if="isLegendExpanded" class="legend-popover-content">
+        <div class="legend-item" title="Vértice sendo expandido ou aresta avaliada no passo atual">
+          <span class="dot-sample dot-amber"></span>
+          <span class="item-name">Atual / Processando</span>
+        </div>
+        <div class="legend-item" title="Vértice visitado ou aresta aceita na Árvore/AGM">
+          <span class="dot-sample dot-green"></span>
+          <span class="item-name">Visitado / Árvore</span>
+        </div>
+        <div class="legend-item" title="Vértice aguardando na fila FIFO ou Min-Heap">
+          <span class="dot-sample dot-purple"></span>
+          <span class="item-name">Fila / Min-Heap</span>
+        </div>
+        <div class="legend-item" title="Conexão integrante do caminho ótimo calculado">
+          <span class="dot-sample dot-blue"></span>
+          <span class="item-name">Menor Caminho</span>
+        </div>
+        <div class="legend-item" title="Aresta rejeitada por formar ciclo (Kruskal)">
+          <span class="dot-sample dot-red"></span>
+          <span class="item-name">Ciclo Rejeitado</span>
+        </div>
+        <div class="legend-item" title="Elemento ainda não explorado">
+          <span class="dot-sample dot-slate"></span>
+          <span class="item-name">Não Visitado</span>
+        </div>
       </div>
     </div>
 
-    <!-- Aviso caso WebGL não esteja disponível -->
+    <!-- Aviso WebGL indisponível se houver erro -->
     <div v-if="webglError" class="webgl-error-banner">
-      <AlertTriangle class="icon-sm text-amber" />
-      <span>Modo 2D ativado (WebGL indisponível neste navegador).</span>
+      <AlertTriangle class="icon-xs text-amber" />
+      <span>Modo 2D ativado (WebGL indisponível neste ambiente).</span>
     </div>
   </div>
 </template>
@@ -92,6 +129,9 @@ import {
   Layers,
   Maximize2,
   Sparkles,
+  RotateCw,
+  ChevronUp,
+  ChevronDown,
   AlertTriangle
 } from 'lucide-vue-next'
 import { useGraph } from '../../composables/useGraph.js'
@@ -111,7 +151,7 @@ const canvas2DRef = ref(null)
 const viewMode = ref('3D')
 const webglError = ref(false)
 const isAutoRotating = ref(false)
-const showLegend = ref(false)
+const isLegendExpanded = ref(false)
 
 let sceneManager = null
 
@@ -125,6 +165,7 @@ onBeforeUnmount(() => {
     sceneManager.destroy()
     sceneManager = null
   }
+  window.removeEventListener('resize', render2D)
 })
 
 function initThreeScene() {
@@ -137,7 +178,7 @@ function initThreeScene() {
     })
     updateScene()
   } catch (err) {
-    console.error('Falha ao inicializar WebGL/Three.js:', err)
+    console.error('Falha ao inicializar Three.js / WebGL:', err)
     webglError.value = true
     viewMode.value = '2D'
   }
@@ -185,12 +226,6 @@ function fitCamera() {
   }
 }
 
-function resetCamera() {
-  if (sceneManager && viewMode.value === '3D') {
-    sceneManager.resetCamera()
-  }
-}
-
 function toggleAutoRotate() {
   if (sceneManager && viewMode.value === '3D') {
     isAutoRotating.value = sceneManager.toggleAutoRotate()
@@ -199,14 +234,14 @@ function toggleAutoRotate() {
 
 function reorganizeLayout() {
   applyForceLayout3D(graph.value, 80)
-  addLog('info', 'Posições dos nós reorganizadas via simulação física.')
+  addLog('info', 'Posições espaciais reorganizadas harmonicamente.')
   updateScene()
   if (sceneManager) {
     sceneManager.fitCameraToGraph()
   }
 }
 
-// Renderizador 2D Canvas Fallback
+// Renderizador 2D Canvas de Alta Precisão
 function init2DCanvas() {
   window.addEventListener('resize', render2D)
   render2D()
@@ -215,14 +250,21 @@ function init2DCanvas() {
 function render2D() {
   const canvas = canvas2DRef.value
   if (!canvas || !containerRef.value) return
+
   const width = containerRef.value.clientWidth || 800
   const height = containerRef.value.clientHeight || 500
+  const dpr = window.devicePixelRatio || 1
 
-  canvas.width = width
-  canvas.height = height
+  canvas.width = width * dpr
+  canvas.height = height * dpr
+  canvas.style.width = `${width}px`
+  canvas.style.height = `${height}px`
+
   const ctx = canvas.getContext('2d')
+  ctx.scale(dpr, dpr)
+
   const isLight = theme.value === 'light'
-  ctx.fillStyle = isLight ? '#f1f5f9' : '#0a0d14'
+  ctx.fillStyle = isLight ? '#f8fafc' : '#090d16'
   ctx.fillRect(0, 0, width, height)
 
   const cx = width / 2
@@ -231,7 +273,7 @@ function render2D() {
 
   const { vertexStatus = {}, edgeStatus = {} } = visualHighlights.value
 
-  // Arestas
+  // Desenho das Arestas 2D
   graph.value.edges.forEach(e => {
     const v1 = graph.value.getVertex(e.source)
     const v2 = graph.value.getVertex(e.target)
@@ -243,31 +285,56 @@ function render2D() {
     const y2 = cy + (v2.y || 0) * scale
 
     const status = edgeStatus[e.id] || edgeStatus[`${e.source}->${e.target}`]
-    const defaultEdgeColor = isLight ? '#94a3b8' : '#475569'
+    const defaultColor = isLight ? '#94a3b8' : '#475569'
+
     ctx.lineWidth = status ? 3.5 : 1.5
-    ctx.strokeStyle = status === 'tree' ? (isLight ? '#059669' : '#10b981') : status === 'cycle' ? (isLight ? '#dc2626' : '#ef4444') : status === 'path' ? (isLight ? '#0284c7' : '#38bdf8') : status === 'examining' ? (isLight ? '#d97706' : '#f59e0b') : defaultEdgeColor
+    ctx.strokeStyle = status === 'tree' ? '#10b981' : status === 'cycle' ? '#ef4444' : status === 'path' ? '#0ea5e9' : status === 'examining' ? '#f59e0b' : defaultColor
 
     ctx.beginPath()
     ctx.moveTo(x1, y1)
     ctx.lineTo(x2, y2)
     ctx.stroke()
 
+    // Seta direcionada em 2D
+    if (graph.value.directed) {
+      const angle = Math.atan2(y2 - y1, x2 - x1)
+      const arrowLen = 10
+      const arrowX = x1 + (x2 - x1) * 0.72
+      const arrowY = y1 + (y2 - y1) * 0.72
+
+      ctx.fillStyle = ctx.strokeStyle
+      ctx.beginPath()
+      ctx.moveTo(arrowX, arrowY)
+      ctx.lineTo(
+        arrowX - arrowLen * Math.cos(angle - Math.PI / 6),
+        arrowY - arrowLen * Math.sin(angle - Math.PI / 6)
+      )
+      ctx.lineTo(
+        arrowX - arrowLen * Math.cos(angle + Math.PI / 6),
+        arrowY - arrowLen * Math.sin(angle + Math.PI / 6)
+      )
+      ctx.closePath()
+      ctx.fill()
+    }
+
+    // Badge de Peso
     if (graph.value.weighted) {
       const mx = (x1 + x2) / 2
       const my = (y1 + y2) / 2
-      ctx.fillStyle = isLight ? '#ffffff' : '#0f172a'
-      ctx.fillRect(mx - 12, my - 9, 24, 18)
-      ctx.strokeStyle = isLight ? '#cbd5e1' : 'rgba(255, 255, 255, 0.1)'
-      ctx.strokeRect(mx - 12, my - 9, 24, 18)
-      ctx.fillStyle = status === 'tree' ? (isLight ? '#059669' : '#34d399') : status === 'cycle' ? (isLight ? '#dc2626' : '#f87171') : status === 'path' ? (isLight ? '#0284c7' : '#38bdf8') : status === 'examining' ? (isLight ? '#d97706' : '#fbbf24') : (isLight ? '#0f172a' : '#cbd5e1')
-      ctx.font = 'bold 11px JetBrains Mono, monospace'
+      ctx.fillStyle = isLight ? '#ffffff' : '#141c2e'
+      ctx.fillRect(mx - 13, my - 9, 26, 18)
+      ctx.strokeStyle = isLight ? '#e7eaf2' : 'rgba(255, 255, 255, 0.15)'
+      ctx.strokeRect(mx - 13, my - 9, 26, 18)
+
+      ctx.fillStyle = status === 'tree' ? '#10b981' : status === 'cycle' ? '#ef4444' : status === 'path' ? '#0ea5e9' : (isLight ? '#172033' : '#f8fafc')
+      ctx.font = 'bold 10px JetBrains Mono, monospace'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(String(e.weight), mx, my)
     }
   })
 
-  // Vértices 2D
+  // Desenho dos Vértices 2D
   graph.value.vertices.forEach(v => {
     const vx = cx + (v.x || 0) * scale
     const vy = cy + (v.y || 0) * scale
@@ -277,19 +344,19 @@ function render2D() {
     ctx.beginPath()
     ctx.arc(vx, vy, isSelected ? 12 : 9, 0, Math.PI * 2)
 
-    // Cores Semânticas 2D de Alto Contraste (Perfeito para projetor)
-    const defaultNodeColor = isLight ? '#334155' : '#64748b'
-    ctx.fillStyle = status === 'current' ? (isLight ? '#d97706' : '#f59e0b') : status === 'visited' ? (isLight ? '#059669' : '#10b981') : status === 'queued' ? (isLight ? '#7c3aed' : '#8b5cf6') : status === 'path' ? (isLight ? '#0284c7' : '#38bdf8') : isSelected ? (isLight ? '#2563eb' : '#ffffff') : defaultNodeColor
+    const defaultNodeColor = isLight ? '#172033' : '#94a3b8'
+    ctx.fillStyle = isSelected ? '#4f63f6' : status === 'current' ? '#f59e0b' : status === 'visited' ? '#10b981' : status === 'queued' ? '#8b5cf6' : status === 'path' ? '#0ea5e9' : defaultNodeColor
     ctx.fill()
-    ctx.lineWidth = 2.5
-    ctx.strokeStyle = isSelected ? (isLight ? '#1d4ed8' : '#3b82f6') : (isLight ? '#94a3b8' : '#1e293b')
+
+    ctx.lineWidth = 2
+    ctx.strokeStyle = isSelected ? '#ffffff' : (isLight ? '#cbd5e1' : '#1e293b')
     ctx.stroke()
 
     // Rótulo
-    ctx.fillStyle = isLight ? '#0f172a' : '#f8fafc'
+    ctx.fillStyle = isLight ? '#172033' : '#f8fafc'
     ctx.font = 'bold 11px Inter, sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText(`${v.id} (${v.label})`, vx, vy + 20)
+    ctx.fillText(`${v.id} · ${v.label}`, vx, vy + 22)
   })
 }
 </script>
@@ -303,7 +370,8 @@ function render2D() {
   overflow: hidden;
 }
 
-.three-viewport, .fallback-2d-viewport {
+.three-viewport,
+.fallback-2d-viewport {
   width: 100%;
   height: 100%;
   position: absolute;
@@ -316,8 +384,8 @@ function render2D() {
   display: block;
 }
 
-/* Barra de Ferramentas Compacta */
-.canvas-toolbar {
+/* Toolbar Flutuante em Cápsula */
+.canvas-glass-toolbar {
   position: absolute;
   top: var(--spacing-3);
   left: var(--spacing-3);
@@ -325,97 +393,157 @@ function render2D() {
   align-items: center;
   gap: var(--spacing-2);
   background: var(--bg-surface);
-  backdrop-filter: blur(8px);
-  padding: 0.25rem 0.45rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 0.25rem 0.5rem;
   box-shadow: var(--shadow-sm);
   z-index: 20;
 }
 
-.toolbar-group {
+.toolbar-mode-switch {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  background: var(--bg-subtle);
+  padding: 2px;
+  border-radius: var(--radius-full);
 }
 
-.toolbar-sep {
-  width: 1px;
-  height: 14px;
-  background: var(--border-subtle);
-}
-
-.tool-btn {
-  padding: 0.35rem 0.55rem;
-  font-size: var(--text-xs);
-  font-weight: 500;
+.mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
   color: var(--text-secondary);
-  border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
 }
 
-.tool-btn:hover {
+.mode-btn:hover {
   color: var(--text-primary);
-  background: rgba(0, 0, 0, 0.05);
 }
 
-.tool-btn.active {
-  background: var(--color-primary);
-  color: #ffffff;
-  font-weight: 600;
+.mode-btn.active {
+  background: var(--bg-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-xs);
 }
 
-/* Faixa Permanente de Identificação Semântica das Cores */
-.semantic-legend-bar {
+.toolbar-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-subtle);
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.action-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+}
+
+.action-icon-btn:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+.action-icon-btn.active {
+  color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+/* Legenda Flutuante Discreta */
+.floating-legend-capsule {
   position: absolute;
   bottom: var(--spacing-3);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-4);
-  background: var(--bg-surface);
-  backdrop-filter: blur(8px);
-  padding: 0.35rem 0.9rem;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-light);
-  box-shadow: var(--shadow-md);
+  right: var(--spacing-3);
   z-index: 20;
-  max-width: 95%;
-  flex-wrap: wrap;
-  justify-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
-.legend-chip-item {
-  display: flex;
+.legend-toggle-pill {
+  display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 0.35rem 0.75rem;
   font-size: 0.72rem;
+  font-weight: 600;
   color: var(--text-secondary);
-  user-select: none;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
 }
 
-.legend-color-dot {
-  width: 9px;
-  height: 9px;
+.legend-toggle-pill:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.legend-indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+}
+
+.legend-popover-content {
+  margin-bottom: var(--spacing-2);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 180px;
+  animation: fadeIn var(--transition-fast) ease-out;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.dot-sample {
+  width: 8px;
+  height: 8px;
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
 
-.dot-amber { background: #f59e0b; box-shadow: 0 0 6px rgba(245, 158, 11, 0.7); }
+.dot-amber { background: #f59e0b; box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
 .dot-green { background: #10b981; }
 .dot-purple { background: #8b5cf6; }
-.dot-blue { background: #38bdf8; }
+.dot-blue { background: #0ea5e9; }
 .dot-red { background: #ef4444; }
 .dot-slate { background: #64748b; }
 
 .webgl-error-banner {
   position: absolute;
-  bottom: var(--spacing-3);
-  left: 50%;
-  transform: translateX(-50%);
+  top: var(--spacing-3);
+  right: var(--spacing-3);
   background: var(--color-warning-bg);
-  border: 1px solid var(--color-warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
   color: var(--color-warning);
   padding: 0.35rem 0.75rem;
   border-radius: var(--radius-md);
@@ -426,49 +554,22 @@ function render2D() {
   z-index: 25;
 }
 
-.icon-sm {
-  width: 15px;
-  height: 15px;
-}
+.icon-xs { width: 13px; height: 13px; }
 
 @media (max-width: 600px) {
-  .canvas-toolbar {
+  .btn-text {
+    display: none;
+  }
+
+  .canvas-glass-toolbar {
     top: var(--spacing-2);
     left: var(--spacing-2);
-    max-width: calc(100% - 16px);
-    overflow-x: auto;
     padding: 0.2rem 0.35rem;
   }
 
-  .tool-btn span {
-    display: none;
-  }
-
-  .tool-btn {
-    padding: 0.4rem;
-  }
-
-  .semantic-legend-bar {
-    bottom: 12px;
-    padding: 0.25rem 0.6rem;
-    gap: var(--spacing-2);
-  }
-
-  .webgl-error-banner {
-    bottom: 12px;
-  }
-
-  .legend-chip-label {
-    display: none;
-  }
-
-  .legend-chip-item {
-    gap: 0;
-  }
-
-  .legend-color-dot {
-    width: 12px;
-    height: 12px;
+  .floating-legend-capsule {
+    bottom: var(--spacing-2);
+    right: var(--spacing-2);
   }
 }
 </style>

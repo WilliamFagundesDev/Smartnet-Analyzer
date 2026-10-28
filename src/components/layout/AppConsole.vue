@@ -1,53 +1,106 @@
 <template>
-  <div class="app-console" :class="{ 'is-collapsed': isCollapsed }">
-    <div class="console-header" @click="isCollapsed = !isCollapsed">
-      <div class="header-left">
-        <Terminal class="icon-sm text-blue" />
-        <span class="console-title">TERMINAL TÉCNICO DE EVENTOS & DIAGNÓSTICO</span>
-        <span class="log-count-badge">{{ logs.length }}</span>
+  <div class="app-console" :class="{ 'is-collapsed': isCollapsed, 'is-focus-mode': isFocusMode }">
+    <!-- Barra de Status Discreta -->
+    <div
+      class="console-status-bar"
+      @click="isCollapsed = !isCollapsed"
+      role="button"
+      tabindex="0"
+      @keydown.enter.space.prevent="isCollapsed = !isCollapsed"
+      :aria-expanded="!isCollapsed"
+      aria-label="Terminal técnico e diagnóstico de eventos"
+    >
+      <div class="status-left">
+        <div class="terminal-badge-indicator" :class="{ 'has-logs': logs.length > 0 }">
+          <Terminal class="icon-xs" />
+        </div>
+        <span class="console-title">Console & Diagnóstico</span>
+        <span class="log-count-chip font-mono">{{ logs.length }}</span>
+        <span v-if="latestLog" class="latest-log-preview font-mono">
+          &mdash; {{ latestLog.message }}
+        </span>
       </div>
-      <div class="header-right" @click.stop>
-        <button class="tool-btn" @click="clearLogs" title="Limpar logs do console">
-          <Trash2 class="icon-xs" />
-          <span>Limpar</span>
-        </button>
-        <button class="tool-btn" @click="copyLogs" title="Copiar todos os logs em texto">
+
+      <div class="status-right" @click.stop>
+        <button
+          v-if="!isCollapsed"
+          class="console-action-btn"
+          @click="copyLogs"
+          title="Copiar todos os logs para a área de transferência"
+          aria-label="Copiar logs"
+        >
           <Copy class="icon-xs" />
           <span>{{ copied ? 'Copiado!' : 'Copiar' }}</span>
         </button>
-        <button class="tool-btn toggle-btn" @click="isCollapsed = !isCollapsed">
-          <ChevronDown v-if="!isCollapsed" class="icon-sm" />
-          <ChevronUp v-else class="icon-sm" />
+
+        <button
+          v-if="!isCollapsed"
+          class="console-action-btn danger"
+          @click="clearLogs"
+          title="Limpar logs"
+          aria-label="Limpar logs"
+        >
+          <Trash2 class="icon-xs" />
+          <span>Limpar</span>
+        </button>
+
+        <button
+          class="console-action-btn toggle-arrow"
+          @click="isCollapsed = !isCollapsed"
+          :title="isCollapsed ? 'Expandir console técnico' : 'Recolher console'"
+          :aria-label="isCollapsed ? 'Expandir console' : 'Recolher console'"
+        >
+          <ChevronDown v-if="!isCollapsed" class="icon-xs" />
+          <ChevronUp v-else class="icon-xs" />
         </button>
       </div>
     </div>
 
-    <div v-if="!isCollapsed" class="console-body" ref="logContainer">
-      <div v-if="logs.length === 0" class="empty-logs">
-        Nenhum evento registrado até o momento.
+    <!-- Área de Conteúdo do Terminal Aberto -->
+    <div v-if="!isCollapsed" class="console-content" ref="logContainer">
+      <div v-if="logs.length === 0" class="empty-state">
+        <span class="empty-text">Aguardando eventos dos algoritmos ou do editor...</span>
       </div>
-      <div
-        v-for="log in logs"
-        :key="log.id"
-        class="log-entry"
-        :class="`log-${log.type}`"
-      >
-        <span class="log-time">[{{ log.timestamp }}]</span>
-        <span class="log-tag">{{ log.type.toUpperCase() }}</span>
-        <span class="log-message">{{ log.message }}</span>
+
+      <div v-else class="log-stream">
+        <div
+          v-for="log in logs"
+          :key="log.id"
+          class="log-row"
+          :class="`log-${log.type}`"
+        >
+          <span class="log-time font-mono">{{ log.timestamp }}</span>
+          <span class="log-badge font-mono">{{ log.type }}</span>
+          <span class="log-text">{{ log.message }}</span>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { Terminal, Trash2, Copy, ChevronDown, ChevronUp } from 'lucide-vue-next'
 import { useGraph } from '../../composables/useGraph.js'
+import { useLayout } from '../../composables/useLayout.js'
 
-const isCollapsed = ref(true) // Recolhido por padrão para maximizar espaço visual
+const { isConsoleCollapsed: isCollapsed, isFocusMode } = useLayout()
 const copied = ref(false)
 const { logs } = useGraph()
+const logContainer = ref(null)
+
+const latestLog = computed(() => {
+  return logs.value.length > 0 ? logs.value[logs.value.length - 1] : null
+})
+
+watch(() => logs.value.length, async () => {
+  if (!isCollapsed.value) {
+    await nextTick()
+    if (logContainer.value) {
+      logContainer.value.scrollTop = logContainer.value.scrollHeight
+    }
+  }
+})
 
 function clearLogs() {
   logs.value = []
@@ -67,148 +120,187 @@ function copyLogs() {
 <style scoped>
 .app-console {
   background: var(--bg-surface);
-  border-top: 1px solid var(--border-light);
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  transition: max-height var(--transition-normal);
+  transition: all var(--transition-normal);
   z-index: 30;
+  flex-shrink: 0;
 }
 
-.app-console.is-collapsed {
-  max-height: 38px;
+.app-console.is-focus-mode {
+  display: none !important;
 }
 
-.console-header {
-  height: 38px;
-  background: var(--bg-subtle);
+.console-status-bar {
+  height: 32px;
+  background: var(--bg-surface);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--spacing-4);
   cursor: pointer;
   user-select: none;
-  border-bottom: 1px solid var(--border-subtle);
+  transition: background-color var(--transition-fast);
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2);
-}
-
-.console-title {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-}
-
-.log-count-badge {
-  background: var(--color-primary-bg);
-  color: var(--color-primary);
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: var(--radius-full);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2);
-}
-
-.tool-btn {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-}
-
-.tool-btn:hover {
-  color: var(--text-primary);
+.console-status-bar:hover {
   background: var(--bg-card-hover);
 }
 
-.console-body {
-  height: 125px;
-  overflow-y: auto;
-  padding: var(--spacing-2) var(--spacing-4);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
+.status-left {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  background: var(--bg-surface);
+  align-items: center;
+  gap: var(--spacing-2);
+  min-width: 0;
 }
 
-.log-entry {
+.terminal-badge-indicator {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.console-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.log-count-chip {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+.latest-log-preview {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50vw;
+}
+
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+.console-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  transition: all var(--transition-fast);
+}
+
+.console-action-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.console-action-btn.danger:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.toggle-arrow {
+  padding: 0.2rem 0.4rem;
+}
+
+.console-content {
+  height: 130px;
+  overflow-y: auto;
+  padding: var(--spacing-2) var(--spacing-4);
+  background: var(--code-bg);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.log-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.log-row {
+  display: flex;
+  align-items: baseline;
   gap: var(--spacing-2);
-  line-height: 1.4;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 .log-time {
   color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.log-tag {
-  font-weight: 700;
   font-size: 0.7rem;
-  padding: 0 0.3rem;
-  border-radius: 3px;
   flex-shrink: 0;
 }
 
-.log-info .log-tag {
+.log-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.log-info .log-badge {
   background: var(--color-primary-bg);
   color: var(--color-primary);
 }
 
-.log-success .log-tag {
+.log-success .log-badge {
   background: var(--color-success-bg);
   color: var(--color-success);
 }
 
-.log-warning .log-tag {
+.log-warning .log-badge {
   background: var(--color-warning-bg);
   color: var(--color-warning);
 }
 
-.log-error .log-tag {
+.log-error .log-badge {
   background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
-.log-message {
+.log-text {
   color: var(--text-primary);
   word-break: break-word;
 }
 
-.empty-logs {
-  color: var(--text-muted);
-  padding: var(--spacing-3) 0;
-  text-align: center;
-  font-style: italic;
-}
-
 .icon-xs {
-  width: 12px;
-  height: 12px;
-}
-
-.icon-sm {
-  width: 15px;
-  height: 15px;
-}
-
-.text-blue {
-  color: var(--color-primary);
+  width: 13px;
+  height: 13px;
 }
 
 @media (max-width: 768px) {

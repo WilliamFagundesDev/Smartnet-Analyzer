@@ -2,8 +2,8 @@
   <div class="view-container documentation-view">
     <div class="view-header">
       <div>
-        <h1 class="view-title">DOCUMENTAÇÃO ACADÊMICA & GUIA DO SISTEMA</h1>
-        <p class="view-subtitle">Especificação formal, guia de apresentação ao vivo e campos avaliativos</p>
+        <h1 class="view-title">Documentação Acadêmica & Especificação</h1>
+        <p class="view-subtitle">Fundamentação conceitual, modelagem SmartNet, protocolo JSON e roteiro de avaliação</p>
       </div>
 
       <div class="badge-group">
@@ -13,9 +13,12 @@
 
     <!-- Identificação do Grupo e Avaliação -->
     <div class="card-elevated section-card">
-      <h3 class="section-title">1. IDENTIFICAÇÃO DO PROJETO & INTEGRANTES DO GRUPO</h3>
+      <div class="card-heading-group">
+        <span class="step-num-pill font-mono">01</span>
+        <h3 class="section-title">Identificação do Projeto & Integrantes</h3>
+      </div>
       <p class="section-text">
-        Os campos abaixo foram estruturados para identificação do grupo na entrega formal e durante a apresentação ao vivo:
+        Estruturação padronizada para apresentação formal em banca avaliadora universitária:
       </p>
 
       <div class="info-grid">
@@ -25,23 +28,23 @@
         </div>
         <div class="info-item">
           <span class="info-label">CURSO:</span>
-          <span class="info-value">[ Preencher: Bacharelado em Ciência da Computação / Eng. Software ]</span>
+          <span class="info-value">[ Bacharelado em Ciência da Computação / Eng. Software ]</span>
         </div>
         <div class="info-item">
           <span class="info-label">PROFESSOR(A):</span>
-          <span class="info-value">[ Preencher: Nome do(a) Professor(a) ]</span>
+          <span class="info-value">[ Nome do(a) Docente Avaliador(a) ]</span>
         </div>
         <div class="info-item">
           <span class="info-label">INSTITUIÇÃO:</span>
-          <span class="info-value">[ Preencher: Universidade / Faculdade ]</span>
+          <span class="info-value">[ Universidade / Centro Universitário ]</span>
         </div>
         <div class="info-item full-width">
           <span class="info-label">INTEGRANTES DO GRUPO (NOME E MATRÍCULA):</span>
           <div class="student-placeholder-box font-mono">
-            1. [ Preencher Nome Completo do Aluno 1 - Matrícula: XXXXXXX ]<br />
-            2. [ Preencher Nome Completo do Aluno 2 - Matrícula: XXXXXXX ]<br />
-            3. [ Preencher Nome Completo do Aluno 3 - Matrícula: XXXXXXX ]<br />
-            4. [ Preencher Nome Completo do Aluno 4 - Matrícula: XXXXXXX ]
+            1. William Fagundes — Desenvolvedor & Autor do Projeto<br />
+            2. [ Integrante 2 — Matrícula: XXXXXXX ]<br />
+            3. [ Integrante 3 — Matrícula: XXXXXXX ]<br />
+            4. [ Integrante 4 — Matrícula: XXXXXXX ]
           </div>
         </div>
       </div>
@@ -49,9 +52,12 @@
 
     <!-- Metáfora de Cidade Inteligente -->
     <div class="card-elevated section-card">
-      <h3 class="section-title">2. METÁFORA DE CIDADE INTELIGENTE (SMARTNET)</h3>
+      <div class="card-heading-group">
+        <span class="step-num-pill font-mono">02</span>
+        <h3 class="section-title">Metáfora de Cidade Inteligente (SmartNet)</h3>
+      </div>
       <p class="section-text">
-        O sistema modela a infraestrutura cibernética e de conectividade física de uma metrópole:
+        O sistema modela computacionalmente a infraestrutura cibernética e de conectividade física de uma metrópole:
       </p>
       <div class="metaphor-grid">
         <div class="metaphor-box">
@@ -60,49 +66,52 @@
         </div>
         <div class="metaphor-box">
           <span class="metaphor-title text-purple">&bull; Arestas (Canais de Comunicação):</span>
-          <p>Representam cabos submarinos/aéreos de fibra óptica, avenidas de tráfego veicular, enlaces de rádio micro-ondas ou tubulações inteligentes.</p>
+          <p>Representam cabos aéreos/subterrâneos de fibra óptica, avenidas de tráfego veicular, enlaces de rádio micro-ondas ou tubulações inteligentes.</p>
         </div>
         <div class="metaphor-box">
           <span class="metaphor-title text-green">&bull; Pesos das Arestas:</span>
-          <p>Quantificam grandezas físicas como distância linear (km), latência de transmissão (ms), custo de implantação financeira ($) ou tempo de trajeto.</p>
+          <p>Quantificam grandezas físicas como distância linear (km), latência de transmissão (ms), custo financeiro de implantação ($) ou tempo de trajeto.</p>
         </div>
         <div class="metaphor-box">
           <span class="metaphor-title text-amber">&bull; Direcionamento:</span>
-          <p>Diferencia canais bidirecionais simétricos (ex: vias de mão dupla) de fluxos unidirecionais restritos (ex: canais de broadcast ou vias de sentido único).</p>
+          <p>Diferencia canais bidirecionais simétricos (vias de mão dupla) de fluxos unidirecionais restritos (canais de telemetria ou vias de sentido único).</p>
         </div>
       </div>
     </div>
 
-    <!-- Guia de Operação dos Algoritmos -->
+    <!-- Guia Didático de Operação dos Algoritmos -->
     <div class="card-elevated section-card">
-      <h3 class="section-title">3. GUIA DIDÁTICO DE EXECUÇÃO DOS ALGORITMOS</h3>
+      <div class="card-heading-group">
+        <span class="step-num-pill font-mono">03</span>
+        <h3 class="section-title">Guia Didático dos Algoritmos</h3>
+      </div>
       <div class="steps-flow">
         <div class="step-card">
-          <div class="step-num font-mono">01</div>
+          <div class="step-num font-mono">DFS</div>
           <div class="step-body">
-            <h4 class="step-title">Busca em Profundidade (DFS)</h4>
-            <p>Selecione a raiz. O algoritmo avança recursivamente pelo caminho mais profundo antes de retroceder (backtracking). Perfeito para detectar percursos, componentes e conectividade global.</p>
+            <h4 class="step-title">Busca em Profundidade</h4>
+            <p>Avança recursivamente pelo caminho mais profundo antes do retrocesso (backtracking). Essencial para detectar percursos, ciclos e componentes conectados.</p>
           </div>
         </div>
         <div class="step-card">
-          <div class="step-num font-mono">02</div>
+          <div class="step-num font-mono">BFS</div>
           <div class="step-body">
-            <h4 class="step-title">Busca em Largura (BFS)</h4>
-            <p>Utiliza uma fila FIFO para expandir ondas concêntricas por níveis. Encontra com rigor o <strong>menor número de arestas (saltos)</strong> entre nós.</p>
+            <h4 class="step-title">Busca em Largura</h4>
+            <p>Utiliza uma fila FIFO real para expandir ondas concêntricas por níveis. Encontra com rigor o <strong>menor número de arestas (saltos)</strong> entre nós.</p>
           </div>
         </div>
         <div class="step-card">
-          <div class="step-num font-mono">03</div>
+          <div class="step-num font-mono">DIJ</div>
           <div class="step-body">
-            <h4 class="step-title">Dijkstra (Caminho Mínimo Ponderado)</h4>
-            <p>Utiliza o Min-Heap para fixar gulosamente o vértice mais próximo. Requer pesos não-negativos e encontra o caminho de <strong>menor custo total acumulado</strong>.</p>
+            <h4 class="step-title">Dijkstra (Menor Custo)</h4>
+            <p>Utiliza o Min-Heap para fixar gulosamente o vértice de menor distância. Requer pesos não-negativos e encontra o caminho de <strong>menor custo total acumulado</strong>.</p>
           </div>
         </div>
         <div class="step-card">
-          <div class="step-num font-mono">04</div>
+          <div class="step-num font-mono">KRU</div>
           <div class="step-body">
-            <h4 class="step-title">Kruskal (Árvore Geradora Mínima - AGM)</h4>
-            <p>Ordena as arestas por peso e utiliza a estrutura Union-Find para conectar componentes disjuntos sem formar ciclos. Conecta toda a cidade com o menor custo financeiro possível.</p>
+            <h4 class="step-title">Kruskal (Árvore Mínima)</h4>
+            <p>Ordena as arestas por peso e utiliza a estrutura Union-Find para conectar componentes disjuntos sem formar ciclos, minimizando o custo total da rede.</p>
           </div>
         </div>
       </div>
@@ -110,9 +119,12 @@
 
     <!-- Especificação do Formato JSON -->
     <div class="card-elevated section-card">
-      <h3 class="section-title">4. ESQUEMA JSON DOCUMENTADO DE IMPORTAÇÃO & EXPORTAÇÃO</h3>
+      <div class="card-heading-group">
+        <span class="step-num-pill font-mono">04</span>
+        <h3 class="section-title">Especificação JSON Padronizada</h3>
+      </div>
       <p class="section-text">
-        O sistema exporta e importa grafos através de uma estrutura JSON estrita e padronizada:
+        O sistema exporta e importa topologias através de uma especificação JSON estrita e padronizada:
       </p>
       <pre class="json-code-box font-mono">{
   "name": "Nome da Rede Metropolitana",
@@ -137,7 +149,7 @@
 .documentation-view {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-5);
+  gap: var(--spacing-4);
   padding: var(--spacing-5);
   height: 100%;
   overflow-y: auto;
@@ -152,15 +164,16 @@
 }
 
 .view-title {
-  font-size: var(--text-xl);
+  font-size: 1.35rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .view-subtitle {
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  margin-top: 0.2rem;
+  margin-top: 0.15rem;
 }
 
 .section-card {
@@ -168,14 +181,33 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.card-heading-group {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--spacing-2);
+}
+
+.step-num-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-primary-bg);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
 }
 
 .section-title {
   font-size: var(--text-sm);
-  letter-spacing: 0.05em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: var(--spacing-2);
 }
 
 .section-text {
@@ -188,7 +220,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--spacing-3);
-  margin-top: var(--spacing-2);
+  margin-top: var(--spacing-1);
 }
 
 .info-item {
@@ -214,6 +246,7 @@
 .info-value {
   font-size: var(--text-xs);
   color: var(--color-primary);
+  font-weight: 600;
 }
 
 .student-placeholder-box {
@@ -250,7 +283,7 @@
 
 .steps-flow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--spacing-3);
 }
 
@@ -260,11 +293,12 @@
   border-radius: var(--radius-md);
   padding: var(--spacing-4);
   display: flex;
-  gap: var(--spacing-3);
+  flex-direction: column;
+  gap: var(--spacing-2);
 }
 
 .step-num {
-  font-size: 1.25rem;
+  font-size: 0.85rem;
   font-weight: 800;
   color: var(--color-primary);
 }
@@ -295,6 +329,7 @@
   color: var(--color-path);
   font-size: 0.78rem;
   overflow-x: auto;
+  line-height: 1.5;
 }
 
 .text-blue { color: var(--color-primary); }
@@ -305,12 +340,8 @@
 @media (max-width: 768px) {
   .documentation-view {
     padding: var(--spacing-3);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px));
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 16px));
     gap: var(--spacing-3);
-  }
-
-  .doc-section {
-    padding: var(--spacing-4);
   }
 
   .info-grid,

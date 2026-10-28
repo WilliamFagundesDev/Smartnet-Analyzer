@@ -1,312 +1,376 @@
 <template>
-  <div class="algorithm-results-container glass-panel">
-    <div class="results-header">
-      <div class="header-info">
-        <h3 class="results-title">RELATÓRIO & RESULTADOS</h3>
-        <p class="results-subtitle" v-if="result">
-          Algoritmo: <strong class="text-blue">{{ result.algorithm }}</strong> &middot; Complexidade:
-          <span class="font-mono font-bold">{{ result.complexity.time }}</span>
+  <div class="algorithm-results-container card-elevated">
+    <!-- Cabeçalho do Painel de Resultados -->
+    <div class="results-header-bar">
+      <div class="header-main-info">
+        <div class="title-with-badge">
+          <h3 class="results-heading">MÉTRICAS & RESULTADO TÉCNICO</h3>
+          <span v-if="result" class="badge badge-blue">
+            {{ result.algorithm }}
+          </span>
+        </div>
+        <p class="results-sub" v-if="result">
+          Complexidade Teórica:
+          <strong class="font-mono text-primary">{{ result.complexity.time }}</strong>
+          &middot; Espaço:
+          <span class="font-mono text-muted">{{ result.complexity.space }}</span>
         </p>
       </div>
 
-      <div class="header-actions" v-if="result">
-        <button class="btn btn-secondary btn-sm" @click="copyTextResults" title="Copiar relatório completo em texto">
-          <Copy class="icon-xs" />
-          <span>Copiar</span>
+      <div class="header-action-group" v-if="result">
+        <button
+          class="btn btn-secondary btn-sm"
+          @click="copyTextResults"
+          :title="copied ? 'Copiado para a área de transferência!' : 'Copiar relatório completo'"
+        >
+          <Check v-if="copied" class="icon-xs text-green" />
+          <Copy v-else class="icon-xs" />
+          <span>{{ copied ? 'Copiado!' : 'Copiar' }}</span>
         </button>
-        <button class="btn btn-ghost btn-sm" @click="clearResult" title="Limpar resultados da tela">
+
+        <button
+          class="btn btn-ghost btn-sm"
+          @click="clearResult"
+          title="Limpar resultados"
+        >
           <Trash2 class="icon-xs" />
           <span>Limpar</span>
         </button>
       </div>
     </div>
 
-    <!-- Estado Vazio -->
-    <div v-if="!result" class="empty-state">
-      <Binary class="empty-icon text-muted" />
-      <h4 class="empty-title">Nenhum resultado para exibir</h4>
+    <!-- Estado Vazio (Antes da Execução) -->
+    <div v-if="!result" class="empty-state-panel">
+      <div class="empty-icon-circle">
+        <Binary class="empty-icon text-muted" />
+      </div>
+      <h4 class="empty-title">Pronto para Execução</h4>
       <p class="empty-desc">
-        Selecione um algoritmo acima e clique em "Executar e Ver Resultado" ou "Ver Passo a Passo".
+        Selecione o algoritmo acima e clique em <strong>Executar Simulação</strong> para visualizar o percurso passo a passo ou <strong>Resultado Imediato</strong> para obter o relatório final instantâneo.
       </p>
     </div>
 
-    <!-- Resultados DFS -->
-    <div v-else-if="result.algorithm === 'DFS'" class="result-details">
-      <div class="summary-cards-grid">
-        <div class="summary-card">
-          <span class="card-label">Origem:</span>
-          <span class="card-val font-mono text-blue">{{ result.startVertexId }}</span>
-        </div>
-        <div class="summary-card">
-          <span class="card-label">Visitados:</span>
-          <span class="card-val font-mono">{{ result.visitedCount }} / {{ result.totalVertices }}</span>
-        </div>
-        <div class="summary-card">
-          <span class="card-label">Arestas da Árvore:</span>
-          <span class="card-val font-mono text-green">{{ result.treeEdgeCount }}</span>
-        </div>
-        <div class="summary-card">
-          <span class="card-label">Conectividade:</span>
-          <span class="badge" :class="result.isCompleteTraversal ? 'badge-green' : 'badge-amber'">
-            {{ result.isCompleteTraversal ? 'Totalmente Conexo' : 'Grafo Desconexo' }}
-          </span>
-        </div>
+    <!-- Resultados Reais do Algoritmo -->
+    <div v-else class="results-body">
+      <!-- 1. Notificação de Conclusão Discreta -->
+      <div class="completion-banner">
+        <CheckCircle2 class="icon-sm text-green flex-shrink-0" />
+        <span class="completion-text">
+          Execução de <strong>{{ result.algorithm }}</strong> concluída com sucesso &mdash;
+          {{ completionSummaryText }}
+        </span>
       </div>
 
-      <div class="section-box">
-        <h4 class="section-heading">ORDEM DE VISITAÇÃO:</h4>
-        <div class="sequence-chips">
+      <!-- 2. Resumo Principal: Métricas Chave Específicas do Algoritmo -->
+      <div class="kpi-metrics-grid">
+        <!-- DFS KPIs -->
+        <template v-if="result.algorithm === 'DFS'">
+          <div class="kpi-card">
+            <span class="kpi-label">Vértice Raiz:</span>
+            <span class="kpi-val font-mono text-blue">{{ result.startVertexId }}</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Vértices Visitados:</span>
+            <span class="kpi-val font-mono">{{ result.visitedCount }} / {{ result.totalVertices }}</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Arestas de Árvore:</span>
+            <span class="kpi-val font-mono text-green">{{ result.treeEdgeCount }}</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Conectividade:</span>
+            <span class="badge" :class="result.isCompleteTraversal ? 'badge-green' : 'badge-amber'">
+              {{ result.isCompleteTraversal ? 'Totalmente Conexo' : 'Grafo Desconexo' }}
+            </span>
+          </div>
+        </template>
+
+        <!-- BFS KPIs -->
+        <template v-else-if="result.algorithm === 'BFS'">
+          <div class="kpi-card">
+            <span class="kpi-label">Vértice Raiz:</span>
+            <span class="kpi-val font-mono text-blue">{{ result.startVertexId }}</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Vértices Alcançados:</span>
+            <span class="kpi-val font-mono">{{ result.visitedCount }} / {{ result.totalVertices }}</span>
+          </div>
+          <div class="kpi-card" v-if="result.targetVertexId">
+            <span class="kpi-label">Destino:</span>
+            <span class="kpi-val font-mono text-primary">{{ result.targetVertexId }}</span>
+          </div>
+          <div class="kpi-card" v-if="result.shortestPath">
+            <span class="kpi-label">Menor Salto:</span>
+            <span class="kpi-val font-mono text-green">{{ result.pathEdgeCount }} arestas</span>
+          </div>
+        </template>
+
+        <!-- Dijkstra KPIs -->
+        <template v-else-if="result.algorithm === 'Dijkstra'">
+          <div class="kpi-card">
+            <span class="kpi-label">Vértice Origem:</span>
+            <span class="kpi-val font-mono text-blue">{{ result.startVertexId }}</span>
+          </div>
+          <div class="kpi-card" v-if="result.targetVertexId">
+            <span class="kpi-label">Destino:</span>
+            <span class="kpi-val font-mono text-primary">{{ result.targetVertexId }}</span>
+          </div>
+          <div class="kpi-card" v-if="result.targetCost !== null">
+            <span class="kpi-label">Custo Mínimo Total:</span>
+            <span class="kpi-val font-mono text-green">{{ result.targetCost }}</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Vértices Fixados:</span>
+            <span class="kpi-val font-mono">{{ result.settledOrder.length }} / {{ graph.vertices.length }}</span>
+          </div>
+        </template>
+
+        <!-- Kruskal KPIs -->
+        <template v-else-if="result.algorithm === 'Kruskal'">
+          <div class="kpi-card">
+            <span class="kpi-label">Arestas na AGM:</span>
+            <span class="kpi-val font-mono text-green">
+              {{ result.edgeCountInMST }}
+              <span class="kpi-subtext">de {{ result.expectedEdgesForSingleTree }}</span>
+            </span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Custo Total da Árvore:</span>
+            <span class="kpi-val font-mono text-blue">{{ result.totalCost }}</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Componentes:</span>
+            <span class="kpi-val font-mono">{{ result.componentCount }}</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Classificação:</span>
+            <span class="badge" :class="result.isSpanningTree ? 'badge-green' : 'badge-amber'">
+              {{ result.isSpanningTree ? 'Árvore Única' : 'Floresta Mínima' }}
+            </span>
+          </div>
+        </template>
+      </div>
+
+      <!-- 3. Caminho Mínimo Encontrado em Destaque (BFS / Dijkstra) -->
+      <div v-if="shortestPathList" class="path-card">
+        <div class="path-top">
+          <span class="path-title">CAMINHO ÓTIMO ENCONTRADO</span>
+          <span v-if="pathMetricBadge" class="badge badge-green font-mono">
+            {{ pathMetricBadge }}
+          </span>
+        </div>
+        <div class="path-nodes-flow font-mono">
           <span
-            v-for="(vId, idx) in result.visitedOrder"
-            :key="vId"
-            class="chip-node font-mono"
+            v-for="(nodeId, idx) in shortestPathList"
+            :key="nodeId"
+            class="path-node-item"
           >
-            <span class="chip-idx">#{{ idx + 1 }}</span>
-            <span class="chip-id">{{ vId }}</span>
+            <span class="node-chip">{{ nodeId }}</span>
+            <span v-if="idx < shortestPathList.length - 1" class="node-arrow">&rarr;</span>
           </span>
         </div>
       </div>
 
-      <div class="section-box">
-        <h4 class="section-heading">ARESTAS DA ÁRVORE DFS ({{ result.treeEdges.length }}):</h4>
-        <div v-if="result.treeEdges.length === 0" class="subtext">
-          Nenhuma aresta de árvore gerada (vértice inicial isolado).
-        </div>
-        <div v-else class="table-container">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>Origem</th>
-                <th>Destino</th>
-                <th>Peso</th>
-                <th>Aresta</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="e in result.treeEdges" :key="e.edgeId || `${e.source}-${e.target}`">
-                <td class="font-mono text-blue">{{ e.source }}</td>
-                <td class="font-mono text-blue">{{ e.target }}</td>
-                <td class="font-mono font-bold">{{ e.weight }}</td>
-                <td class="font-mono text-muted">{{ e.edgeId || 'e-dfs' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <!-- 4. Seletor de Detalhes Sob Demanda (Abas Limpas) -->
+      <div class="details-tab-bar">
+        <button
+          class="tab-btn"
+          :class="{ active: activeDetailTab === 'main' }"
+          @click="activeDetailTab = 'main'"
+        >
+          <span>{{ mainTabLabel }}</span>
+        </button>
+
+        <button
+          v-if="hasSecondaryTab"
+          class="tab-btn"
+          :class="{ active: activeDetailTab === 'secondary' }"
+          @click="activeDetailTab = 'secondary'"
+        >
+          <span>{{ secondaryTabLabel }}</span>
+        </button>
+
+        <button
+          class="tab-btn"
+          :class="{ active: activeDetailTab === 'sequence' }"
+          @click="activeDetailTab = 'sequence'"
+        >
+          <span>Ordem de Visitação</span>
+        </button>
       </div>
 
-      <div v-if="result.unreachableVertices.length > 0" class="warning-box">
-        <AlertTriangle class="icon-sm text-amber" />
-        <div>
-          <strong>Vértices Inalcançáveis a partir de "{{ result.startVertexId }}":</strong>
-          <span class="font-mono ml-2">{{ result.unreachableVertices.join(', ') }}</span>
-        </div>
-      </div>
-    </div>
+      <!-- Conteúdo da Aba Ativa -->
+      <div class="tab-content-panel">
+        <!-- DFS Aba Principal: Arestas da Árvore DFS -->
+        <div v-if="result.algorithm === 'DFS' && activeDetailTab === 'main'">
+          <div v-if="result.treeEdges.length === 0" class="empty-subtext">
+            Nenhuma aresta de árvore gerada (vértice inicial isolado).
+          </div>
+          <div v-else class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Origem</th>
+                  <th>Destino</th>
+                  <th>Peso</th>
+                  <th>Aresta</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="e in result.treeEdges" :key="e.edgeId || `${e.source}-${e.target}`">
+                  <td class="font-mono text-blue font-bold">{{ e.source }}</td>
+                  <td class="font-mono text-blue font-bold">{{ e.target }}</td>
+                  <td class="font-mono font-bold">{{ e.weight }}</td>
+                  <td class="font-mono text-muted">{{ e.edgeId || 'e-tree' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-    <!-- Resultados BFS -->
-    <div v-else-if="result.algorithm === 'BFS'" class="result-details">
-      <div class="summary-cards-grid">
-        <div class="summary-card">
-          <span class="card-label">Raiz da Busca:</span>
-          <span class="card-val font-mono text-blue">{{ result.startVertexId }}</span>
+          <div v-if="result.unreachableVertices.length > 0" class="warning-alert-row">
+            <AlertTriangle class="icon-xs text-amber" />
+            <span>
+              <strong>Vértices Inalcançáveis a partir de "{{ result.startVertexId }}":</strong>
+              {{ result.unreachableVertices.join(', ') }}
+            </span>
+          </div>
         </div>
-        <div class="summary-card">
-          <span class="card-label">Vértices Alcançados:</span>
-          <span class="card-val font-mono">{{ result.visitedCount }} / {{ result.totalVertices }}</span>
-        </div>
-        <div class="summary-card" v-if="result.targetVertexId">
-          <span class="card-label">Destino Solicitado:</span>
-          <span class="card-val font-mono text-red">{{ result.targetVertexId }}</span>
-        </div>
-        <div class="summary-card" v-if="result.shortestPath">
-          <span class="card-label">Menor Salto em Arestas:</span>
-          <span class="card-val font-mono text-green">{{ result.pathEdgeCount }} saltos</span>
-        </div>
-      </div>
 
-      <div v-if="result.shortestPath" class="path-highlight-card">
-        <div class="path-label">CAMINHO MÍNIMO EM NÚMERO DE ARESTAS:</div>
-        <div class="path-sequence font-mono">
-          {{ result.shortestPath.join(' ➔ ') }}
+        <!-- BFS Aba Principal: Tabela de Distâncias e Predecessores -->
+        <div v-else-if="result.algorithm === 'BFS' && activeDetailTab === 'main'">
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Vértice</th>
+                  <th>Distância (Saltos)</th>
+                  <th>Predecessor</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="v in graph.vertices" :key="v.id">
+                  <td class="font-mono text-blue font-bold">{{ v.id }} <span class="text-secondary font-sans font-normal">({{ v.label }})</span></td>
+                  <td class="font-mono font-bold">
+                    {{ result.distances[v.id] === Infinity ? '∞' : result.distances[v.id] }}
+                  </td>
+                  <td class="font-mono">{{ result.predecessors[v.id] || '—' }}</td>
+                  <td>
+                    <span
+                      class="badge"
+                      :class="result.distances[v.id] !== Infinity ? 'badge-green' : 'badge-red'"
+                    >
+                      {{ result.distances[v.id] !== Infinity ? 'Alcançado' : 'Inalcançável' }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
-      <div class="section-box">
-        <h4 class="section-heading">TABELA DE DISTÂNCIAS EM NÍVEIS (HOPS) E PREDECESSORES:</h4>
-        <div class="table-container">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>Vértice</th>
-                <th>Distância (Arestas)</th>
-                <th>Precessor</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="v in graph.vertices" :key="v.id">
-                <td class="font-mono text-blue"><strong>{{ v.id }}</strong> ({{ v.label }})</td>
-                <td class="font-mono">
-                  {{ result.distances[v.id] === Infinity ? '∞' : result.distances[v.id] }}
-                </td>
-                <td class="font-mono">{{ result.predecessors[v.id] || 'Nenhum' }}</td>
-                <td>
-                  <span
-                    class="badge"
-                    :class="result.distances[v.id] !== Infinity ? 'badge-green' : 'badge-red'"
-                  >
-                    {{ result.distances[v.id] !== Infinity ? 'Alcançado' : 'Inalcançável' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Dijkstra Aba Principal: Tabela Completa de Destinos e Custos Ótimos -->
+        <div v-else-if="result.algorithm === 'Dijkstra' && activeDetailTab === 'main'">
+          <div class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Destino</th>
+                  <th>Custo Ótimo Acumulado</th>
+                  <th>Predecessor</th>
+                  <th>Caminho Reconstruído</th>
+                  <th>Alcançabilidade</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in result.distancesTable" :key="row.vertexId">
+                  <td class="font-mono text-blue font-bold">{{ row.vertexId }} <span class="text-secondary font-sans font-normal">({{ row.label }})</span></td>
+                  <td class="font-mono font-bold">
+                    {{ row.isReachable ? row.distance : '∞' }}
+                  </td>
+                  <td class="font-mono">{{ row.predecessor || '—' }}</td>
+                  <td class="font-mono text-secondary">{{ row.pathString }}</td>
+                  <td>
+                    <span class="badge" :class="row.isReachable ? 'badge-green' : 'badge-red'">
+                      {{ row.isReachable ? 'Alcançável' : 'Inalcançável' }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Resultados Dijkstra -->
-    <div v-else-if="result.algorithm === 'Dijkstra'" class="result-details">
-      <div class="summary-cards-grid">
-        <div class="summary-card">
-          <span class="card-label">Vértice de Origem:</span>
-          <span class="card-val font-mono text-blue">{{ result.startVertexId }}</span>
+        <!-- Kruskal Aba Principal: Arestas Selecionadas na AGM -->
+        <div v-else-if="result.algorithm === 'Kruskal' && activeDetailTab === 'main'">
+          <div v-if="result.mstEdges.length === 0" class="empty-subtext">
+            Nenhuma aresta foi aceita na Árvore Geradora Mínima.
+          </div>
+          <div v-else class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Vértice U</th>
+                  <th>Vértice V</th>
+                  <th>Peso da Aresta</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="e in result.mstEdges" :key="e.id">
+                  <td class="font-mono text-blue font-bold">{{ e.source }}</td>
+                  <td class="font-mono text-blue font-bold">{{ e.target }}</td>
+                  <td class="font-mono font-bold">{{ e.weight }}</td>
+                  <td>
+                    <span class="badge badge-green">Aceita na AGM</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="summary-card" v-if="result.targetVertexId">
-          <span class="card-label">Destino:</span>
-          <span class="card-val font-mono text-red">{{ result.targetVertexId }}</span>
-        </div>
-        <div class="summary-card" v-if="result.targetCost !== null">
-          <span class="card-label">Custo Mínimo Total:</span>
-          <span class="card-val font-mono text-green">{{ result.targetCost }}</span>
-        </div>
-        <div class="summary-card">
-          <span class="card-label">Vértices Fixados:</span>
-          <span class="card-val font-mono">{{ result.settledOrder.length }}</span>
-        </div>
-      </div>
 
-      <div v-if="result.targetPath" class="path-highlight-card">
-        <div class="path-label">CAMINHO ÓTIMO DE MENOR CUSTO PONDERADO (DIJKSTRA):</div>
-        <div class="path-sequence font-mono">
-          {{ result.targetPath.join(' ➔ ') }}
+        <!-- Kruskal Aba Secundária: Arestas Rejeitadas (Ciclos) -->
+        <div v-else-if="result.algorithm === 'Kruskal' && activeDetailTab === 'secondary'">
+          <div v-if="result.rejectedEdges.length === 0" class="empty-subtext">
+            Nenhum ciclo formado (grafo acíclico).
+          </div>
+          <div v-else class="table-container">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Vértice U</th>
+                  <th>Vértice V</th>
+                  <th>Peso</th>
+                  <th>Motivo da Rejeição</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="e in result.rejectedEdges" :key="e.id">
+                  <td class="font-mono text-muted">{{ e.source }}</td>
+                  <td class="font-mono text-muted">{{ e.target }}</td>
+                  <td class="font-mono">{{ e.weight }}</td>
+                  <td>
+                    <span class="badge badge-red">Formaria Ciclo (Mesmo Conjunto DSU)</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="path-cost">
-          Custo acumulado total: <strong>{{ result.targetCost }}</strong>
-        </div>
-      </div>
 
-      <div class="section-box">
-        <h4 class="section-heading">TABELA COMPLETA DE DESTINOS, CUSTOS E CAMINHOS:</h4>
-        <div class="table-container">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>Destino</th>
-                <th>Distância / Custo Ótimo</th>
-                <th>Predecessor</th>
-                <th>Caminho Reconstruído</th>
-                <th>Conexão</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in result.distancesTable" :key="row.vertexId">
-                <td class="font-mono text-blue"><strong>{{ row.vertexId }}</strong> ({{ row.label }})</td>
-                <td class="font-mono font-bold">
-                  {{ row.isReachable ? row.distance : '∞ (Inalcançável)' }}
-                </td>
-                <td class="font-mono">{{ row.predecessor || 'Nenhum' }}</td>
-                <td class="font-mono text-secondary">{{ row.pathString }}</td>
-                <td>
-                  <span class="badge" :class="row.isReachable ? 'badge-green' : 'badge-red'">
-                    {{ row.isReachable ? 'Alcançável' : 'Inalcançável' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Resultados Kruskal -->
-    <div v-else-if="result.algorithm === 'Kruskal'" class="result-details">
-      <div class="summary-cards-grid">
-        <div class="summary-card">
-          <span class="card-label">Arestas Selecionadas na AGM:</span>
-          <span class="card-val font-mono text-green">
-            {{ result.edgeCountInMST }}
-            <span class="sub-label">de {{ result.expectedEdgesForSingleTree }} esperadas</span>
-          </span>
-        </div>
-        <div class="summary-card">
-          <span class="card-label">Custo Total da Árvore / Floresta:</span>
-          <span class="card-val font-mono text-blue">{{ result.totalCost }}</span>
-        </div>
-        <div class="summary-card">
-          <span class="card-label">Componentes Resultantes:</span>
-          <span class="card-val font-mono">{{ result.componentCount }}</span>
-        </div>
-        <div class="summary-card">
-          <span class="card-label">Classificação Topológica:</span>
-          <span class="badge" :class="result.isSpanningTree ? 'badge-green' : 'badge-amber'">
-            {{ result.isSpanningTree ? 'Árvore Geradora Mínima Única' : 'Floresta Geradora Mínima' }}
-          </span>
-        </div>
-      </div>
-
-      <div class="section-box">
-        <h4 class="section-heading">ARESTAS ACEITAS NA ÁRVORE GERADORA MÍNIMA ({{ result.mstEdges.length }}):</h4>
-        <div v-if="result.mstEdges.length === 0" class="subtext">
-          Nenhuma aresta foi aceita (grafo com 0 ou 1 vértice).
-        </div>
-        <div v-else class="table-container">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>Vértice U</th>
-                <th>Vértice V</th>
-                <th>Peso da Conexão</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="e in result.mstEdges" :key="e.id">
-                <td class="font-mono text-blue">{{ e.source }}</td>
-                <td class="font-mono text-blue">{{ e.target }}</td>
-                <td class="font-mono font-bold">{{ e.weight }}</td>
-                <td>
-                  <span class="badge badge-green">Conecta Componentes</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="section-box" v-if="result.rejectedEdges.length > 0">
-        <h4 class="section-heading">ARESTAS REJEITADAS POR FORMAÇÃO DE CICLOS ({{ result.rejectedEdges.length }}):</h4>
-        <div class="table-container">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>Vértice U</th>
-                <th>Vértice V</th>
-                <th>Peso</th>
-                <th>Motivo da Rejeição</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="e in result.rejectedEdges" :key="e.id">
-                <td class="font-mono text-muted">{{ e.source }}</td>
-                <td class="font-mono text-muted">{{ e.target }}</td>
-                <td class="font-mono">{{ e.weight }}</td>
-                <td>
-                  <span class="badge badge-red">Formaria Ciclo (Mesmo Conjunto DSU)</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Aba Ordem de Visitação / Fixação -->
+        <div v-else-if="activeDetailTab === 'sequence'">
+          <div class="sequence-chips-wrap">
+            <div
+              v-for="(vId, idx) in visitSequenceList"
+              :key="vId"
+              class="sequence-pill font-mono"
+            >
+              <span class="seq-idx">#{{ idx + 1 }}</span>
+              <span class="seq-node">{{ vId }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -314,20 +378,95 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { Binary, Copy, Trash2, AlertTriangle } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+import {
+  Binary,
+  Copy,
+  Trash2,
+  Check,
+  CheckCircle2,
+  AlertTriangle
+} from 'lucide-vue-next'
 import { useGraph } from '../../composables/useGraph.js'
 import { useAlgorithmRunner } from '../../composables/useAlgorithmRunner.js'
 
 const { graph } = useGraph()
 const { result, clearResult } = useAlgorithmRunner()
 const copied = ref(false)
+const activeDetailTab = ref('main')
+
+const completionSummaryText = computed(() => {
+  if (!result.value) return ''
+  switch (result.value.algorithm) {
+    case 'DFS':
+      return `${result.value.visitedCount} nós visitados & ${result.value.treeEdgeCount} arestas de árvore geradas.`
+    case 'BFS':
+      return `${result.value.visitedCount} nós alcançados a partir da raiz "${result.value.startVertexId}".`
+    case 'Dijkstra':
+      return result.value.targetCost !== null
+        ? `Menor custo para "${result.value.targetVertexId}": ${result.value.targetCost}.`
+        : `Custos calculados para todos os ${result.value.settledOrder.length} nós alcançáveis.`
+    case 'Kruskal':
+      return `AGM construída com ${result.value.edgeCountInMST} arestas e custo total de ${result.value.totalCost}.`
+    default:
+      return 'Cálculo concluído.'
+  }
+})
+
+const shortestPathList = computed(() => {
+  if (!result.value) return null
+  if (result.value.algorithm === 'BFS' && result.value.shortestPath) {
+    return result.value.shortestPath
+  }
+  if (result.value.algorithm === 'Dijkstra' && result.value.targetPath) {
+    return result.value.targetPath
+  }
+  return null
+})
+
+const pathMetricBadge = computed(() => {
+  if (!result.value) return null
+  if (result.value.algorithm === 'BFS' && result.value.pathEdgeCount !== undefined) {
+    return `${result.value.pathEdgeCount} Saltos`
+  }
+  if (result.value.algorithm === 'Dijkstra' && result.value.targetCost !== null) {
+    return `Custo: ${result.value.targetCost}`
+  }
+  return null
+})
+
+const mainTabLabel = computed(() => {
+  if (!result.value) return 'Detalhes'
+  switch (result.value.algorithm) {
+    case 'DFS': return 'Arestas de Árvore'
+    case 'BFS': return 'Tabela de Distâncias (Saltos)'
+    case 'Dijkstra': return 'Tabela de Custos & Caminhos'
+    case 'Kruskal': return 'Arestas Aceitas (AGM)'
+    default: return 'Detalhes'
+  }
+})
+
+const hasSecondaryTab = computed(() => {
+  return result.value && result.value.algorithm === 'Kruskal' && result.value.rejectedEdges?.length > 0
+})
+
+const secondaryTabLabel = computed(() => {
+  return 'Ciclos Rejeitados'
+})
+
+const visitSequenceList = computed(() => {
+  if (!result.value) return []
+  if (result.value.visitedOrder) return result.value.visitedOrder
+  if (result.value.settledOrder) return result.value.settledOrder
+  if (result.value.mstEdges) return result.value.mstEdges.map(e => `${e.source}➔${e.target}`)
+  return []
+})
 
 function copyTextResults() {
   if (!result.value) return
-  let text = `SMARTNET ANALYZER - RELATÓRIO DO ALGORITMO: ${result.value.algorithm}\n`
+  let text = `SMARTNET ANALYZER — RELATÓRIO DO ALGORITMO: ${result.value.algorithm}\n`
   text += `Data: ${new Date().toLocaleString()}\n`
-  text += `Complexidade: ${result.value.complexity.time} (Espaço: ${result.value.complexity.space})\n\n`
+  text += `Complexidade Teórica: ${result.value.complexity.time} (Espaço: ${result.value.complexity.space})\n\n`
 
   if (result.value.algorithm === 'DFS') {
     text += `Raiz: ${result.value.startVertexId}\n`
@@ -340,7 +479,7 @@ function copyTextResults() {
     text += `Raiz: ${result.value.startVertexId}\n`
     text += `Ordem de Visitação: ${result.value.visitedOrder.join(' -> ')}\n`
     if (result.value.shortestPath) {
-      text += `Caminho Mínimo em Arestas: ${result.value.shortestPath.join(' -> ')} (${result.value.pathEdgeCount} saltos)\n`
+      text += `Caminho Mínimo em Saltos: ${result.value.shortestPath.join(' -> ')} (${result.value.pathEdgeCount} arestas)\n`
     }
   } else if (result.value.algorithm === 'Dijkstra') {
     text += `Origem: ${result.value.startVertexId}\n`
@@ -369,241 +508,286 @@ function copyTextResults() {
 
 <style scoped>
 .algorithm-results-container {
-  padding: var(--spacing-5);
+  padding: var(--spacing-4);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
-.results-header {
+.results-header-bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: var(--spacing-3);
-}
-
-.results-title {
-  font-size: var(--text-sm);
-  letter-spacing: 0.05em;
-  color: var(--text-primary);
-}
-
-.results-subtitle {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  margin-top: 0.2rem;
-}
-
-.header-actions {
-  display: flex;
+  flex-wrap: wrap;
   gap: var(--spacing-2);
 }
 
-.empty-state {
-  padding: var(--spacing-10) var(--spacing-4);
-  text-align: center;
+.title-with-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.results-heading {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+
+.results-sub {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 0.15rem;
+}
+
+.header-action-group {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+/* Estado Vazio */
+.empty-state-panel {
+  padding: var(--spacing-8) var(--spacing-4);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-3);
+  text-align: center;
+  gap: var(--spacing-2);
+}
+
+.empty-icon-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  background: var(--bg-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--spacing-1);
 }
 
 .empty-icon {
-  width: 48px;
-  height: 48px;
-  opacity: 0.4;
+  width: 24px;
+  height: 24px;
+  color: var(--text-muted);
 }
 
 .empty-title {
-  font-size: var(--text-base);
-  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .empty-desc {
   font-size: var(--text-xs);
-  color: var(--text-muted);
-  max-width: 480px;
-  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 440px;
+  line-height: 1.5;
 }
 
-.result-details {
+/* Resultados Preenchidos */
+.results-body {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-4);
-}
-
-.summary-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--spacing-3);
 }
 
-.summary-card {
+.completion-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  background: var(--color-success-bg);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-md);
+  padding: 0.45rem 0.75rem;
+  font-size: var(--text-xs);
+  color: var(--color-success);
+}
+
+.completion-text {
+  color: var(--text-primary);
+}
+
+/* KPIs */
+.kpi-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--spacing-2);
+}
+
+.kpi-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: var(--spacing-3);
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
-.card-label {
-  font-size: 0.7rem;
+.kpi-label {
+  font-size: 0.68rem;
+  font-weight: 600;
   color: var(--text-muted);
 }
 
-.card-val {
-  font-size: var(--text-base);
+.kpi-val {
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
-.sub-label {
-  font-size: 0.7rem;
+.kpi-subtext {
+  font-size: 0.68rem;
   font-weight: 400;
   color: var(--text-muted);
 }
 
-.section-box {
+/* Card do Caminho */
+.path-card {
+  background: var(--color-path-bg);
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3) var(--spacing-4);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-2);
+  gap: 0.4rem;
 }
 
-.section-heading {
-  font-size: 0.72rem;
+.path-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.path-title {
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
+  color: var(--color-path);
+  letter-spacing: 0.04em;
 }
 
-.sequence-chips {
+.path-nodes-flow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.node-chip {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid rgba(14, 165, 233, 0.4);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.node-arrow {
+  color: var(--color-path);
+}
+
+/* Abas de Detalhes Sob Demanda */
+.details-tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 2px;
+}
+
+.tab-btn {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+.tab-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+.tab-content-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.sequence-chips-wrap {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-2);
+  gap: 0.4rem;
+  padding: var(--spacing-2) 0;
 }
 
-.chip-node {
+.sequence-pill {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  padding: 0.2rem 0.5rem;
   border-radius: var(--radius-sm);
-  display: flex;
+  padding: 0.2rem 0.5rem;
+  display: inline-flex;
   align-items: center;
   gap: 0.35rem;
   font-size: var(--text-xs);
 }
 
-.chip-idx {
+.seq-idx {
   color: var(--text-muted);
   font-size: 0.68rem;
 }
 
-.chip-id {
+.seq-node {
   color: var(--color-primary);
   font-weight: 700;
 }
 
-.path-highlight-card {
-  background: var(--color-path-bg);
-  border: 1px solid var(--color-path);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-3) var(--spacing-4);
-}
-
-.path-label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--color-path);
-  letter-spacing: 0.04em;
-  margin-bottom: 0.2rem;
-}
-
-.path-sequence {
-  font-size: var(--text-base);
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.path-cost {
-  margin-top: var(--spacing-1);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-}
-
-.warning-box {
-  background: var(--color-warning-bg);
-  border: 1px solid var(--color-warning);
-  color: var(--color-warning);
-  padding: var(--spacing-3);
-  border-radius: var(--radius-md);
-  font-size: var(--text-xs);
+.warning-alert-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
+  gap: 0.4rem;
+  background: var(--color-warning-bg);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  color: var(--color-warning);
 }
 
-.subtext {
+.empty-subtext {
   font-size: var(--text-xs);
   color: var(--text-muted);
   font-style: italic;
+  padding: var(--spacing-3) 0;
 }
 
-.icon-xs {
-  width: 14px;
-  height: 14px;
+.flex-shrink-0 {
+  flex-shrink: 0;
 }
 
-.icon-sm {
-  width: 16px;
-  height: 16px;
-}
-
-.text-blue {
-  color: var(--color-primary);
-}
-
-.text-green {
-  color: var(--color-success);
-}
-
-.text-red {
-  color: var(--color-danger);
-}
-
-.text-amber {
-  color: var(--color-warning);
-}
-
-.ml-2 {
-  margin-left: 0.5rem;
-}
+.icon-xs { width: 13px; height: 13px; }
+.icon-sm { width: 16px; height: 16px; }
 
 @media (max-width: 600px) {
-  .summary-cards-grid {
+  .kpi-metrics-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: var(--spacing-2);
-  }
-
-  .summary-card {
-    padding: var(--spacing-2);
-  }
-
-  .card-val {
-    font-size: var(--text-sm);
-  }
-
-  .results-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-2);
-  }
-
-  .header-actions {
-    width: 100%;
-    justify-content: flex-end;
   }
 }
 </style>

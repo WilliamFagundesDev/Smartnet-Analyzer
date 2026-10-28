@@ -1,5 +1,5 @@
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'is-focus-mode': isFocusMode }">
     <!-- Cabeçalho Principal -->
     <AppHeader />
 
@@ -42,8 +42,10 @@ import MobileTerminalModal from './components/layout/MobileTerminalModal.vue'
 import ShutdownModal from './components/layout/ShutdownModal.vue'
 import ShutdownScreen from './components/layout/ShutdownScreen.vue'
 import { useMobileNav } from './composables/useMobileNav.js'
+import { useLayout } from './composables/useLayout.js'
 
 const { initMobileListener, destroyMobileListener } = useMobileNav()
+const { isFocusMode } = useLayout()
 
 onMounted(() => {
   initMobileListener()

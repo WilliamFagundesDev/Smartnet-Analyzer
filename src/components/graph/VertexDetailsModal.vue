@@ -97,10 +97,13 @@ function handleRemove() {
   position: absolute;
   top: 70px;
   right: var(--spacing-4);
-  width: 310px;
+  width: 320px;
   padding: var(--spacing-4);
   z-index: 30;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  animation: fadeIn var(--transition-fast) ease-out;
 }
 
 .panel-header {
@@ -120,18 +123,19 @@ function handleRemove() {
 
 .vertex-title {
   font-size: var(--text-sm);
+  font-weight: 700;
   color: var(--text-primary);
 }
 
 .close-btn {
   color: var(--text-muted);
-  padding: 0.2rem;
+  padding: 0.25rem;
   border-radius: var(--radius-sm);
 }
 
 .close-btn:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-card-hover);
 }
 
 .panel-body {

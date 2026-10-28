@@ -2,31 +2,34 @@
   <div class="view-container data-structure-view">
     <div class="view-header">
       <div>
-        <h1 class="view-title">ESTRUTURAS DE DADOS EM MEMÓRIA</h1>
-        <p class="view-subtitle">Inspeção direta da representação interna do grafo em JavaScript puro (Lista vs Matriz)</p>
+        <h1 class="view-title">Estruturas de Dados em Memória</h1>
+        <p class="view-subtitle">Inspeção direta da representação interna do grafo (Lista de Adjacência vs Matriz de Adjacência)</p>
       </div>
 
-      <div class="tab-pill-group">
+      <!-- Seletor de Abas em Cápsula Segmentada -->
+      <div class="tab-segmented-capsule">
         <button
-          class="pill-btn"
+          class="capsule-btn"
           :class="{ active: activeTab === 'list' }"
           @click="activeTab = 'list'"
         >
-          Lista de Adjacência [O(V + E)]
+          <span>Lista de Adjacência</span>
+          <span class="complexity-badge font-mono">O(V + E)</span>
         </button>
         <button
-          class="pill-btn"
+          class="capsule-btn"
           :class="{ active: activeTab === 'matrix' }"
           @click="activeTab = 'matrix'"
         >
-          Matriz de Adjacência [O(V²)]
+          <span>Matriz de Adjacência</span>
+          <span class="complexity-badge font-mono">O(V²)</span>
         </button>
         <button
-          class="pill-btn"
+          class="capsule-btn"
           :class="{ active: activeTab === 'compare' }"
           @click="activeTab = 'compare'"
         >
-          Comparativo Teórico
+          <span>Comparativo Teórico</span>
         </button>
       </div>
     </div>
@@ -41,51 +44,53 @@
         <AdjacencyMatrixVisualizer />
       </div>
 
-      <div v-else-if="activeTab === 'compare'" class="compare-card glass-panel">
-        <h3 class="compare-title">ANÁLISE COMPARATIVA DE ESTRUTURAS DE REPRESENTAÇÃO</h3>
-        <p class="compare-intro">
-          A escolha da estrutura de dados fundamental para representar um grafo impacta diretamente tanto o consumo de memória principal quanto o tempo de execução dos algoritmos que operam sobre ele.
-        </p>
+      <div v-else-if="activeTab === 'compare'" class="compare-card card-elevated">
+        <div class="compare-header">
+          <h3 class="compare-title">Análise Comparativa de Representação em Memória</h3>
+          <p class="compare-intro">
+            A escolha da estrutura de dados fundamental para representar um grafo impacta diretamente tanto o consumo de memória principal quanto o tempo de execução dos algoritmos que operam sobre ele.
+          </p>
+        </div>
 
         <div class="table-container">
           <table class="custom-table">
             <thead>
               <tr>
                 <th>Critério de Avaliação</th>
-                <th>Lista de Adjacência (Implementação Principal)</th>
-                <th>Matriz de Adjacência (Alternativa Visual)</th>
+                <th>Lista de Adjacência (Padrão)</th>
+                <th>Matriz de Adjacência (Alternativa)</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td class="font-bold">Complexidade Espacial (Memória)</td>
-                <td class="text-green font-mono"><strong>O(V + E)</strong> &mdash; Ótima para grafos esparsos</td>
-                <td class="text-amber font-mono"><strong>O(V²)</strong> &mdash; Independe da quantidade de arestas E</td>
+                <td class="text-green font-mono font-bold">O(V + E) &mdash; Ótima para grafos esparsos</td>
+                <td class="text-amber font-mono font-bold">O(V²) &mdash; Independe da quantidade de arestas E</td>
               </tr>
               <tr>
                 <td class="font-bold">Verificar se Existe Aresta (u, v)</td>
-                <td class="font-mono">O(grau(u)) &mdash; Percorre lista de u</td>
-                <td class="text-green font-mono"><strong>O(1)</strong> &mdash; Acesso direto indexado M[u][v]</td>
+                <td class="font-mono">O(grau(u)) &mdash; Percorre lista de vizinhos de u</td>
+                <td class="text-green font-mono font-bold">O(1) &mdash; Acesso indexado direto M[u][v]</td>
               </tr>
               <tr>
                 <td class="font-bold">Iterar Todos os Vizinhos de u</td>
-                <td class="text-green font-mono"><strong>O(grau(u))</strong> &mdash; Itera apenas conexões reais</td>
-                <td class="font-mono">O(V) &mdash; Precisa varrer toda a linha u da matriz</td>
+                <td class="text-green font-mono font-bold">O(grau(u)) &mdash; Itera apenas conexões reais</td>
+                <td class="font-mono">O(V) &mdash; Varrer toda a linha u da grade</td>
               </tr>
               <tr>
                 <td class="font-bold">Adicionar um Novo Vértice</td>
-                <td class="text-green font-mono"><strong>O(1)</strong> &mdash; Adiciona entrada no Map</td>
+                <td class="text-green font-mono font-bold">O(1) &mdash; Adiciona entrada no Map</td>
                 <td class="font-mono">O(V) ou realocação V² &mdash; Redimensionamento da grade</td>
               </tr>
               <tr>
                 <td class="font-bold">Remover um Vértice</td>
                 <td class="font-mono">O(V + E) &mdash; Remove nó e arestas incidentes</td>
-                <td class="font-mono">O(V²) &mdash; Reconstrução ou deslocamento de linhas/colunas</td>
+                <td class="font-mono">O(V²) &mdash; Reconstrução de linhas/colunas</td>
               </tr>
               <tr>
                 <td class="font-bold">Adequação Prática</td>
-                <td>Excelente para a maioria das redes urbanas do mundo real (ruas, fibras, rotas) onde E &ll; V².</td>
-                <td>Adequada para grafos densos onde E &asymp; V² ou quando consultas de adjacência em tempo O(1) são críticas.</td>
+                <td>Excelente para redes urbanas, estradas, fibras ópticas e roteadores reais onde E &ll; V².</td>
+                <td>Adequada para grafos densos onde E &asymp; V² ou quando consultas de adjacência instantânea O(1) são críticas.</td>
               </tr>
             </tbody>
           </table>
@@ -125,27 +130,32 @@ const activeTab = ref('list')
 }
 
 .view-title {
-  font-size: var(--text-xl);
+  font-size: 1.35rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .view-subtitle {
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  margin-top: 0.2rem;
+  margin-top: 0.15rem;
 }
 
-.tab-pill-group {
+.tab-segmented-capsule {
   display: flex;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
-  padding: 0.25rem;
+  padding: 3px;
+  box-shadow: var(--shadow-xs);
 }
 
-.pill-btn {
-  padding: 0.45rem 1rem;
+.capsule-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   font-weight: 600;
@@ -153,11 +163,27 @@ const activeTab = ref('list')
   transition: all var(--transition-fast);
 }
 
-.pill-btn.active {
+.capsule-btn:hover {
+  color: var(--text-primary);
+}
+
+.capsule-btn.active {
   background: var(--color-primary);
   color: #ffffff;
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
+}
+
+.complexity-badge {
+  font-size: 0.65rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+.capsule-btn.active .complexity-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
 .tab-view-body {
@@ -165,32 +191,37 @@ const activeTab = ref('list')
 }
 
 .compare-card {
-  padding: var(--spacing-6);
+  padding: var(--spacing-5);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.compare-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .compare-title {
   font-size: var(--text-sm);
-  letter-spacing: 0.05em;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
 .compare-intro {
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.font-bold {
-  font-weight: 700;
+  line-height: 1.5;
 }
 
 @media (max-width: 768px) {
   .data-structure-view {
     padding: var(--spacing-3);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px));
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 16px));
     gap: var(--spacing-3);
   }
 
@@ -200,21 +231,17 @@ const activeTab = ref('list')
     gap: var(--spacing-2);
   }
 
-  .tab-pill-group {
+  .tab-segmented-capsule {
     width: 100%;
     overflow-x: auto;
     border-radius: var(--radius-md);
-    padding: 0.2rem;
   }
 
-  .pill-btn {
+  .capsule-btn {
+    flex: 1;
     white-space: nowrap;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.72rem;
-  }
-
-  .compare-card {
-    padding: var(--spacing-3);
+    justify-content: center;
+    padding: 0.4rem;
   }
 }
 </style>

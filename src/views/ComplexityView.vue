@@ -2,19 +2,19 @@
   <div class="view-container complexity-view">
     <div class="view-header">
       <div>
-        <h1 class="view-title">ANÁLISE DE COMPLEXIDADE DOS ALGORITMOS</h1>
-        <p class="view-subtitle">Fundamentação assintótica rigorosa (Big-O), justificativas matemáticas e estruturas auxiliares</p>
+        <h1 class="view-title">Análise de Complexidade dos Algoritmos</h1>
+        <p class="view-subtitle">Fundamentação assintótica rigorosa (Big-O), estruturas auxiliares e justificativas matemáticas</p>
       </div>
 
       <div class="didactic-badge">
-        <span class="badge badge-purple">Guia para Apresentação Oral Universitária</span>
+        <span class="badge badge-purple">Guia Teórico de Apresentação</span>
       </div>
     </div>
 
     <!-- Tabela Resumo Comparativo Big-O -->
     <div class="card-elevated table-card">
       <div class="card-header-bar">
-        <h3 class="card-title">MATRIZ ASSINTÓTICA DOS ALGORITMOS IMPLEMENTADOS</h3>
+        <h3 class="card-title">Matriz Assintótica dos Algoritmos Implementados</h3>
       </div>
       <div class="table-container">
         <table class="custom-table">
@@ -64,65 +64,65 @@
     <!-- Cards de Detalhamento Didático -->
     <div class="details-grid">
       <!-- DFS Card -->
-      <div class="detail-card glass-panel">
+      <div class="detail-card card-elevated">
         <div class="detail-badge-row">
           <span class="badge badge-blue">DFS</span>
-          <span class="font-mono text-green">O(V + E)</span>
+          <span class="font-mono font-bold text-green">O(V + E)</span>
         </div>
         <h4 class="detail-title">Busca em Profundidade</h4>
         <p class="detail-text">
-          Cada vértice é marcado como visitado exatamente uma vez (custo $O(V)$). Para cada vértice $u$, todas as suas conexões na Lista de Adjacência são inspecionadas uma única vez (no caso direcionado) ou duas vezes (no caso não-direcionado), totalizando $O(E)$. O tempo total é portanto estritamente linear em relação ao tamanho da entrada: $O(V + E)$.
+          Cada vértice é marcado como visitado exatamente uma vez (custo O(V)). Para cada vértice u, todas as suas conexões na Lista de Adjacência são inspecionadas uma única vez (no caso direcionado) ou duas vezes (no caso não-direcionado), totalizando O(E). O tempo total é estritamente linear em relação ao tamanho da entrada: O(V + E).
         </p>
-        <div class="detail-list">
-          <div>&bull; <strong>Espaço Auxiliar:</strong> $O(V)$ para a pilha de recursão/execução no pior caso (grafo linha).</div>
+        <div class="detail-list font-mono">
+          <div>&bull; <strong>Espaço Auxiliar:</strong> O(V) para a pilha de recursão/execução no pior caso (grafo linha).</div>
           <div>&bull; <strong>Comportamento em Desconexos:</strong> Itera sobre todos os vértices criando uma floresta DFS de componentes.</div>
         </div>
       </div>
 
       <!-- BFS Card -->
-      <div class="detail-card glass-panel">
+      <div class="detail-card card-elevated">
         <div class="detail-badge-row">
           <span class="badge badge-blue">BFS</span>
-          <span class="font-mono text-green">O(V + E)</span>
+          <span class="font-mono font-bold text-green">O(V + E)</span>
         </div>
         <h4 class="detail-title">Busca em Largura</h4>
         <p class="detail-text">
-          Utiliza uma fila FIFO real implementada em JavaScript. Cada vértice entra e sai da fila no máximo uma vez ($O(V)$). Ao ser desenfileirado, suas arestas incidentes são varridas ($O(E)$). Garante a descoberta dos vértices por níveis de distância mínima em número de arestas (hops).
+          Utiliza uma fila FIFO real implementada em JavaScript. Cada vértice entra e sai da fila no máximo uma vez (O(V)). Ao ser desenfileirado, suas arestas incidentes são varridas (O(E)). Garante a descoberta dos vértices por níveis de distância mínima em número de arestas (saltos).
         </p>
-        <div class="detail-list">
+        <div class="detail-list font-mono">
           <div>&bull; <strong>Distinção Crucial:</strong> BFS não resolve caminhos mínimos ponderados quando pesos variam (para isso usa-se Dijkstra).</div>
-          <div>&bull; <strong>Espaço Auxiliar:</strong> $O(V)$ para a fila FIFO e mapa de distâncias.</div>
+          <div>&bull; <strong>Espaço Auxiliar:</strong> O(V) para a fila FIFO e mapa de distâncias.</div>
         </div>
       </div>
 
       <!-- Dijkstra Card -->
-      <div class="detail-card glass-panel">
+      <div class="detail-card card-elevated">
         <div class="detail-badge-row">
           <span class="badge badge-purple">Dijkstra</span>
-          <span class="font-mono text-green">O((V + E) log V)</span>
+          <span class="font-mono font-bold text-green">O((V + E) log V)</span>
         </div>
         <h4 class="detail-title">Menor Caminho Ponderado</h4>
         <p class="detail-text">
-          Implementado com Min-Heap Binário (PriorityQueue) construído do zero. A operação de extrair o vértice de menor distância (<code>dequeue</code>) ocorre no máximo $V$ vezes, com custo $O(\log V)$ cada. Cada relaxamento de aresta bem-sucedido pode inserir o nó atualizado na fila em $O(\log V)$, ocorrendo no máximo $E$ vezes. O custo acumulado é $O(V \log V + E \log V) = O((V + E) \log V)$.
+          Implementado com Min-Heap Binário (PriorityQueue) construído do zero. A operação de extrair o vértice de menor distância (<code>dequeue</code>) ocorre no máximo V vezes, com custo O(log V) cada. Cada relaxamento de aresta bem-sucedido pode atualizar o nó na fila em O(log V), ocorrendo no máximo E vezes. O custo acumulado é O((V + E) log V).
         </p>
-        <div class="detail-list">
-          <div>&bull; <strong>Restrição Matemática:</strong> Se houver pesos negativos, a premissa gulosa de Dijkstra é invalidada (o algoritmo do sistema valida e bloqueia com erro explícito).</div>
-          <div>&bull; <strong>Espaço Auxiliar:</strong> $O(V)$ para o heap e vetores de distâncias e predecessores.</div>
+        <div class="detail-list font-mono">
+          <div>&bull; <strong>Restrição Matemática:</strong> Se houver pesos negativos, a premissa gulosa de Dijkstra é invalidada (o sistema valida e bloqueia com erro explícito).</div>
+          <div>&bull; <strong>Espaço Auxiliar:</strong> O(V) para o heap e vetores de distâncias e predecessores.</div>
         </div>
       </div>
 
       <!-- Kruskal Card -->
-      <div class="detail-card glass-panel">
+      <div class="detail-card card-elevated">
         <div class="detail-badge-row">
           <span class="badge badge-purple">Kruskal</span>
-          <span class="font-mono text-green">O(E log E)</span>
+          <span class="font-mono font-bold text-green">O(E log E)</span>
         </div>
         <h4 class="detail-title">Árvore Geradora Mínima (AGM)</h4>
         <p class="detail-text">
-          A etapa dominante é a ordenação das $E$ arestas em ordem não-decrescente de peso, que leva $O(E \log E)$. O processamento guloso subsequente utiliza a estrutura Disjoint Set Union (DSU) com compressão de caminho e união por rank. Cada operação de <code>find</code> e <code>union</code> custa $O(\alpha(V))$, onde $\alpha$ é a inversa de Ackermann ($\alpha(V) \le 4$ para qualquer entrada realista).
+          A etapa dominante é a ordenação das E arestas em ordem não-decrescente de peso, que leva O(E log E). O processamento guloso subsequente utiliza a estrutura Disjoint Set Union (DSU) com compressão de caminho e união por rank. Cada operação de <code>find</code> e <code>union</code> custa O(&alpha;(V)), onde &alpha; é a inversa de Ackermann (&alpha;(V) &le; 4 para qualquer entrada realista).
         </p>
-        <div class="detail-list">
-          <div>&bull; <strong>Condição de Conexão:</strong> Em grafos conexos com $V$ nós, seleciona exatamente $V - 1$ arestas. Em grafos desconexos, constrói a Floresta Geradora Mínima.</div>
+        <div class="detail-list font-mono">
+          <div>&bull; <strong>Condição de Conexão:</strong> Em grafos conexos com V nós, seleciona exatamente V - 1 arestas. Em grafos desconexos, constrói a Floresta Geradora Mínima.</div>
           <div>&bull; <strong>Grafos Direcionados:</strong> O algoritmo de Kruskal é formulado exclusivamente para grafos não-direcionados.</div>
         </div>
       </div>
@@ -152,31 +152,35 @@
 }
 
 .view-title {
-  font-size: var(--text-xl);
+  font-size: 1.35rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .view-subtitle {
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  margin-top: 0.2rem;
+  margin-top: 0.15rem;
 }
 
 .table-card {
   overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .card-header-bar {
-  padding: var(--spacing-3) var(--spacing-4);
-  background: var(--bg-card);
+  padding: 0.65rem var(--spacing-4);
+  background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .card-title {
-  font-size: var(--text-xs);
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   color: var(--text-primary);
 }
 
@@ -191,6 +195,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.detail-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-md);
 }
 
 .detail-badge-row {
@@ -214,13 +228,14 @@
 .detail-list {
   background: var(--bg-subtle);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   padding: var(--spacing-3);
-  font-size: 0.75rem;
+  font-size: 0.73rem;
   color: var(--text-secondary);
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  line-height: 1.5;
 }
 
 .font-bold { font-weight: 700; }
@@ -231,7 +246,7 @@
 @media (max-width: 768px) {
   .complexity-view {
     padding: var(--spacing-3);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px));
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 16px));
     gap: var(--spacing-3);
   }
 
@@ -240,7 +255,7 @@
   }
 
   .detail-card {
-    padding: var(--spacing-3);
+    padding: var(--spacing-4);
   }
 }
 </style>

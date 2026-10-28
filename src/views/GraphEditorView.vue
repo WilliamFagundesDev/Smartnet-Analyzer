@@ -1,246 +1,267 @@
 <template>
-  <div class="view-container editor-view">
-    <div class="view-header">
-      <div>
-        <h1 class="view-title">EDITOR ESTATAL DE GRAFOS</h1>
-        <p class="view-subtitle">Gerencie vértices, arestas, atributos topológicos e configure os parâmetros da rede</p>
-      </div>
-
-      <div class="header-actions">
-        <button class="btn btn-secondary btn-sm" @click="isImportExportOpen = true">
-          <FileJson class="icon-xs" />
-          <span>Importar / Exportar JSON</span>
-        </button>
-        <button class="btn btn-danger btn-sm" @click="handleClearGraph">
-          <Trash2 class="icon-xs" />
-          <span>Limpar Grafo</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Barra de Configurações Gerais do Grafo -->
-    <div class="config-bar glass-panel">
-      <div class="config-col name-col">
-        <label class="config-label">NOME DA REDE / GRAFO:</label>
-        <input
-          v-model="graphName"
-          @blur="updateName"
-          @keyup.enter="updateName"
-          type="text"
-          class="input-control"
-          placeholder="Ex: Rede SmartCity Beta"
-        />
-      </div>
-
-      <div class="config-col toggle-col">
-        <label class="config-label">DIRECIONAMENTO:</label>
-        <div class="toggle-group">
-          <button
-            class="toggle-btn"
-            :class="{ active: !graph.directed }"
-            @click="setDirected(false)"
-          >
-            Não-Direcionado (u &harr; v)
-          </button>
-          <button
-            class="toggle-btn"
-            :class="{ active: graph.directed }"
-            @click="setDirected(true)"
-          >
-            Direcionado (u &rarr; v)
-          </button>
-        </div>
-      </div>
-
-      <div class="config-col toggle-col">
-        <label class="config-label">PONDERAÇÃO DAS ARESTAS:</label>
-        <div class="toggle-group">
-          <button
-            class="toggle-btn"
-            :class="{ active: graph.weighted }"
-            @click="setWeighted(true)"
-          >
-            Ponderado (Com Pesos)
-          </button>
-          <button
-            class="toggle-btn"
-            :class="{ active: !graph.weighted }"
-            @click="setWeighted(false)"
-          >
-            Não-Ponderado (Peso 1)
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Alertas de Validação Estrutural -->
-    <div v-if="validation && (!validation.isValid || validation.warnings.length > 0)" class="validation-banner">
-      <div v-for="err in validation.errors" :key="err" class="alert-line text-red">
-        <AlertTriangle class="icon-xs" />
-        <span>{{ err }}</span>
-      </div>
-      <div v-for="warn in validation.warnings" :key="warn" class="alert-line text-amber">
-        <Info class="icon-xs" />
-        <span>{{ warn }}</span>
-      </div>
-    </div>
-
-    <!-- Tabelas Divididas: Vértices à esquerda, Arestas à direita -->
-    <div class="tables-grid">
-      <!-- Painel de Vértices -->
-      <div class="table-card card-elevated">
-        <div class="table-card-header">
-          <div class="header-left">
-            <h3 class="table-card-title">VÉRTICES CADASTRADOS ({{ graph.vertices.length }})</h3>
+  <div
+    class="editor-view-container"
+    :class="{
+      'is-focus-mode': isFocusMode,
+      'is-sidebar-open': !isSidebarCollapsed
+    }"
+  >
+    <!-- BARRA SUPERIOR REFINADA DO EDITOR (Espaçosa, Autoexplicativa e com Micro-Animações) -->
+    <header class="editor-top-bar card-elevated">
+      <!-- 1. GRUPO ESQUERDA: Identificação da Rede e Propriedades Estruturais -->
+      <div class="top-bar-cluster cluster-left">
+        <!-- Badge da Seção -->
+        <div class="editor-brand-chip" title="Módulo de Modelagem e Edição de Grafos">
+          <div class="brand-icon-box">
+            <Network class="icon-xs" />
           </div>
-          <button class="btn btn-primary btn-sm" @click="openAddVertexModal">
-            <Plus class="icon-xs" />
-            <span>Adicionar Vértice</span>
-          </button>
+          <span class="editor-brand-text font-bold">Editor</span>
         </div>
 
-        <div class="table-scroll-container">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Nome / Rótulo</th>
-                <th>Tipo</th>
-                <th>Posição (X, Y, Z)</th>
-                <th class="text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="graph.vertices.length === 0">
-                <td colspan="5" class="empty-cell">Nenhum vértice inserido no grafo.</td>
-              </tr>
-              <tr v-for="v in graph.vertices" :key="v.id">
-                <td class="font-mono text-blue"><strong>{{ v.id }}</strong></td>
-                <td>{{ v.label }}</td>
-                <td>
-                  <span class="badge" :class="getTypeBadge(v.type)">{{ v.type }}</span>
-                </td>
-                <td class="font-mono text-muted">
-                  ({{ v.x }}, {{ v.y }}, {{ v.z }})
-                </td>
-                <td class="text-right actions-cell">
-                  <button class="icon-action-btn" @click="openEditVertexModal(v)" title="Editar Vértice">
-                    <Edit3 class="icon-xs" />
-                  </button>
-                  <button class="icon-action-btn danger" @click="handleRemoveVertex(v.id)" title="Remover Vértice">
-                    <Trash2 class="icon-xs" />
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <!-- Campo de Nome com Alta Affordance de Edição e Estilo Clean -->
+        <label
+          for="graph-name-input"
+          class="editable-name-field"
+          title="Clique para editar o nome da rede (Pressione Enter para salvar)"
+        >
+          <input
+            id="graph-name-input"
+            v-model="graphName"
+            @blur="updateName"
+            @keyup.enter="updateName"
+            type="text"
+            class="clean-name-input font-bold"
+            placeholder="Nome da Rede..."
+            aria-label="Nome da Rede"
+          />
+          <Edit3 class="icon-xs edit-affordance-icon" />
+        </label>
 
-      <!-- Painel de Arestas -->
-      <div class="table-card card-elevated">
-        <div class="table-card-header">
-          <div class="header-left">
-            <h3 class="table-card-title">ARESTAS / CONEXÕES ({{ graph.edges.length }})</h3>
+        <div class="bar-divider"></div>
+
+        <!-- Segmento Autoexplicativo: Direcionamento do Grafo -->
+        <div class="topology-segment" title="Defina se o tráfego nas conexões é de mão dupla ou sentido único">
+          <div class="segment-pill-track" role="group" aria-label="Direcionamento da Rede">
+            <button
+              type="button"
+              class="pill-option-btn fluffy-option-btn"
+              :class="{ active: !graph.directed }"
+              @click="setDirected(false)"
+              title="Não-Direcionado (Mão Dupla): arestas sem seta, conexões bidirecionais (u ↔ v)"
+            >
+              <ArrowLeftRight class="icon-xs pill-icon" />
+              <span class="fluffy-label">Mão Dupla</span>
+            </button>
+            <button
+              type="button"
+              class="pill-option-btn fluffy-option-btn"
+              :class="{ active: graph.directed }"
+              @click="setDirected(true)"
+              title="Direcionado (Sentido Único): arestas com setas no sentido especificado (u ➔ v)"
+            >
+              <ArrowRight class="icon-xs pill-icon" />
+              <span class="fluffy-label">Direcionado</span>
+            </button>
           </div>
-          <button
-            class="btn btn-primary btn-sm"
-            @click="openAddEdgeModal"
-            :disabled="graph.vertices.length < 2"
-          >
-            <Plus class="icon-xs" />
-            <span>Adicionar Conexão</span>
-          </button>
         </div>
 
-        <div class="table-scroll-container">
-          <table class="custom-table">
-            <thead>
-              <tr>
-                <th>Origem</th>
-                <th>Direção</th>
-                <th>Destino</th>
-                <th v-if="graph.weighted">Peso</th>
-                <th class="text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="graph.edges.length === 0">
-                <td :colspan="graph.weighted ? 5 : 4" class="empty-cell">
-                  Nenhuma conexão cadastrada no grafo.
-                </td>
-              </tr>
-              <tr v-for="e in graph.edges" :key="e.id">
-                <td class="font-mono text-blue"><strong>{{ e.source }}</strong></td>
-                <td class="font-mono text-muted">{{ graph.directed ? '➔' : '&harr;' }}</td>
-                <td class="font-mono text-blue"><strong>{{ e.target }}</strong></td>
-                <td v-if="graph.weighted" class="font-mono font-bold text-green">
-                  {{ e.weight }}
-                </td>
-                <td class="text-right actions-cell">
-                  <button class="icon-action-btn" @click="openEditEdgeModal(e)" title="Editar Conexão">
-                    <Edit3 class="icon-xs" />
-                  </button>
-                  <button class="icon-action-btn danger" @click="handleRemoveEdge(e.id)" title="Remover Conexão">
-                    <Trash2 class="icon-xs" />
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Segmento Autoexplicativo: Ponderação de Arestas -->
+        <div class="topology-segment" title="Defina se as conexões possuem pesos numéricos personalizados ou peso unitário (1)">
+          <div class="segment-pill-track" role="group" aria-label="Ponderação de Arestas">
+            <button
+              type="button"
+              class="pill-option-btn fluffy-option-btn"
+              :class="{ active: graph.weighted }"
+              @click="setWeighted(true)"
+              title="Grafo Ponderado: arestas com pesos numéricos reais (km, latência em ms, custo)"
+            >
+              <Scale class="icon-xs pill-icon" />
+              <span class="fluffy-label">Com Pesos</span>
+            </button>
+            <button
+              type="button"
+              class="pill-option-btn fluffy-option-btn"
+              :class="{ active: !graph.weighted }"
+              @click="setWeighted(false)"
+              title="Sem Pesos (Unitário): todas as conexões têm peso fixo igual a 1"
+            >
+              <Hash class="icon-xs pill-icon" />
+              <span class="fluffy-label">Sem Pesos</span>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Modais do Editor -->
-    <VertexFormModal
-      :isOpen="isVertexModalOpen"
-      :vertexToEdit="vertexToEdit"
-      @close="isVertexModalOpen = false"
+      <!-- 2. GRUPO CENTRO: Modos de Trabalho Claros e Didáticos -->
+      <nav class="top-bar-cluster cluster-center" aria-label="Espaços de Trabalho do Editor">
+        <div class="workspaces-pill-track">
+          <button
+            type="button"
+            class="workspace-tab-btn fluffy-option-btn"
+            :class="{ active: activeMode === 'visual' }"
+            @click="activeMode = 'visual'"
+            title="Canvas Visual: desenhe e interaja com os nós e arestas diretamente no canvas interativo"
+          >
+            <Sparkles class="icon-xs tab-icon" />
+            <span class="fluffy-label font-bold">Visual</span>
+          </button>
+
+          <button
+            type="button"
+            class="workspace-tab-btn fluffy-option-btn"
+            :class="{ active: activeMode === 'classic' }"
+            @click="activeMode = 'classic'"
+            title="Tabela Estruturada: gerencie vértices e conexões em formulários e tabelas detalhadas"
+          >
+            <Table class="icon-xs tab-icon" />
+            <span class="fluffy-label font-bold">
+              <span>Estruturado</span>
+              <span class="tab-count-badge font-mono">{{ graph.vertices.length }}V</span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            class="workspace-tab-btn fluffy-option-btn"
+            :class="{ active: activeMode === 'json' }"
+            @click="activeMode = 'json'"
+            title="JSON & Presets: visualize o código JSON do grafo, importe ou carregue modelos prontos"
+          >
+            <FileCode class="icon-xs tab-icon" />
+            <span class="fluffy-label font-bold">JSON</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- 3. GRUPO DIREITA: Diagnóstico, Missões, Modo Foco e Testar no Lab -->
+      <div class="top-bar-cluster cluster-right">
+        <!-- Aviso / Diagnóstico Discreto com Micro-Animação de Pulso -->
+        <div
+          v-if="activeWarning"
+          class="compact-warning-chip"
+          :title="`Diagnóstico da Rede: ${activeWarning}`"
+        >
+          <AlertTriangle class="icon-xs text-amber warning-pulse-icon" />
+          <span class="warning-text font-bold">Aviso</span>
+        </div>
+
+        <!-- Botão Gamificado de Missões & Desafios com Micro Progressão -->
+        <button
+          class="missions-pill-btn"
+          :class="{ 'all-done': allCompleted }"
+          @click="isChallengesOpen = true"
+          :title="`Missões Topológicas: ${completedCount} de ${totalCount} concluídas. Clique para abrir.`"
+        >
+          <Trophy class="icon-xs trophy-icon" />
+          <span class="missions-counter font-mono font-bold">{{ completedCount }}/{{ totalCount }}</span>
+          <div class="missions-progress-ring">
+            <div class="missions-progress-fill" :style="{ width: `${progressPercent}%` }"></div>
+          </div>
+        </button>
+
+        <!-- Alternador de Modo Foco / Tela Ampla -->
+        <button
+          class="focus-mode-btn"
+          :class="{ active: isFocusMode }"
+          @click="toggleFocusMode"
+          :title="isFocusMode ? 'Sair do Modo Foco (restaurar barras e menu lateral)' : 'Ativar Modo Foco: expande o canvas para tela total'"
+        >
+          <Minimize2 v-if="isFocusMode" class="icon-xs focus-icon" />
+          <Maximize2 v-else class="icon-xs focus-icon" />
+          <span class="focus-text font-bold">{{ isFocusMode ? 'Restaurar' : 'Foco' }}</span>
+        </button>
+
+        <!-- Ação Primária Destacada: Testar no Laboratório -->
+        <router-link
+          to="/algorithms"
+          class="btn-simulate-lab"
+          title="Executar algoritmos (Dijkstra, Kruskal, DFS, BFS) com esta rede no Laboratório"
+        >
+          <div class="play-icon-bubble">
+            <Play class="icon-xs" />
+          </div>
+          <span class="btn-text font-bold">Testar no Lab</span>
+        </router-link>
+      </div>
+    </header>
+
+    <!-- ÁREA DE CONSTRUÇÃO PRINCIPAL EM TELA AMPLA -->
+    <main class="editor-main-viewport">
+      <!-- MODO 1: CONSTRUÇÃO VISUAL (TELA CHEIA) -->
+      <div v-show="activeMode === 'visual'" class="mode-workspace-wrapper">
+        <VisualGraphCanvas />
+      </div>
+
+      <!-- MODO 2: EDIÇÃO ESTRUTURADA (CLÁSSICA) -->
+      <div v-if="activeMode === 'classic'" class="mode-workspace-wrapper">
+        <ClassicEditorTab />
+      </div>
+
+      <!-- MODO 3: IMPORTAR / EXPORTAR JSON & PRESETS -->
+      <div v-if="activeMode === 'json'" class="mode-workspace-wrapper">
+        <JsonEditorTab />
+      </div>
+    </main>
+
+    <!-- Drawer Lateral de Missões & Desafios -->
+    <ChallengesDrawer
+      :isOpen="isChallengesOpen"
+      @close="isChallengesOpen = false"
     />
-
-    <EdgeFormModal
-      :isOpen="isEdgeModalOpen"
-      :edgeToEdit="edgeToEdit"
-      @close="isEdgeModalOpen = false"
-    />
-
-    <ImportExportModal
-      :isOpen="isImportExportOpen"
-      @close="isImportExportOpen = false"
-    />
-
-    <!-- Espaçador garantido de respiro inferior no final da rolagem -->
-    <div class="scroll-bottom-spacer"></div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import {
-  FileJson,
-  Trash2,
-  Plus,
+  Network,
   Edit3,
+  ArrowLeftRight,
+  ArrowRight,
+  Scale,
+  Hash,
+  Sparkles,
+  Table,
+  FileCode,
+  Trophy,
   AlertTriangle,
-  Info
+  Maximize2,
+  Minimize2,
+  Play
 } from 'lucide-vue-next'
 import { useGraph } from '../composables/useGraph.js'
-import VertexFormModal from '../components/editor/VertexFormModal.vue'
-import EdgeFormModal from '../components/editor/EdgeFormModal.vue'
-import ImportExportModal from '../components/editor/ImportExportModal.vue'
+import { useGraphChallenges } from '../composables/useGraphChallenges.js'
+import { useLayout } from '../composables/useLayout.js'
+import VisualGraphCanvas from '../components/editor/VisualGraphCanvas.vue'
+import ClassicEditorTab from '../components/editor/ClassicEditorTab.vue'
+import JsonEditorTab from '../components/editor/JsonEditorTab.vue'
+import ChallengesDrawer from '../components/editor/ChallengesDrawer.vue'
 
 const {
   graph,
   validation,
   setDirected,
   setWeighted,
-  setName,
-  clearGraph,
-  removeVertex,
-  removeEdge
+  setName
 } = useGraph()
 
+const {
+  completedCount,
+  totalCount,
+  progressPercent,
+  allCompleted
+} = useGraphChallenges()
+
+const {
+  isSidebarCollapsed,
+  isFocusMode,
+  toggleFocusMode
+} = useLayout()
+
+// Modo de Trabalho ('visual' | 'classic' | 'json')
+const activeMode = ref('visual')
+
+// Nome do Grafo
 const graphName = ref(graph.value.name)
 watch(() => graph.value.name, (val) => { graphName.value = val })
 
@@ -250,284 +271,632 @@ function updateName() {
   }
 }
 
-// Modais
-const isVertexModalOpen = ref(false)
-const vertexToEdit = ref(null)
-const isEdgeModalOpen = ref(false)
-const edgeToEdit = ref(null)
-const isImportExportOpen = ref(false)
-
-function openAddVertexModal() {
-  vertexToEdit.value = null
-  isVertexModalOpen.value = true
-}
-
-function openEditVertexModal(v) {
-  vertexToEdit.value = v
-  isVertexModalOpen.value = true
-}
-
-function handleRemoveVertex(id) {
-  if (confirm(`Deseja realmente remover o vértice "${id}" e todas as suas conexões?`)) {
-    removeVertex(id)
+// Aviso Compacto Derivado
+const activeWarning = computed(() => {
+  if (!validation.value) return null
+  if (validation.value.errors && validation.value.errors.length > 0) {
+    return validation.value.errors[0]
   }
-}
-
-function openAddEdgeModal() {
-  edgeToEdit.value = null
-  isEdgeModalOpen.value = true
-}
-
-function openEditEdgeModal(e) {
-  edgeToEdit.value = e
-  isEdgeModalOpen.value = true
-}
-
-function handleRemoveEdge(id) {
-  if (confirm(`Deseja realmente remover esta conexão?`)) {
-    removeEdge(id)
+  if (validation.value.warnings && validation.value.warnings.length > 0) {
+    return validation.value.warnings[0]
   }
-}
+  return null
+})
 
-function handleClearGraph() {
-  if (confirm('ATENÇÃO: Deseja realmente limpar todos os vértices e arestas do grafo atual?')) {
-    clearGraph()
-  }
-}
-
-function getTypeBadge(type) {
-  switch (type) {
-    case 'hub': return 'badge-amber'
-    case 'datacenter': return 'badge-purple'
-    case 'sensor': return 'badge-green'
-    default: return 'badge-blue'
-  }
-}
+// Drawer de Missões
+const isChallengesOpen = ref(false)
 </script>
 
 <style scoped>
-.editor-view {
+.editor-view-container {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-4);
-  padding: var(--spacing-5);
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
   height: 100%;
-  overflow-y: auto;
+  width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: padding var(--transition-normal);
+  container-type: inline-size;
+  container-name: editor;
 }
 
-.view-header {
+.editor-view-container.is-focus-mode {
+  padding: 0;
+  gap: 0;
+}
+
+/* =========================================================================
+   BARRA SUPERIOR REFINADA (52px de altura com respiro, alinhamento e profundidade)
+   ========================================================================= */
+.editor-top-bar {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  height: 52px;
+  min-height: 52px;
+  padding: 0 0.65rem;
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
+  z-index: 10;
+  transition: all var(--transition-normal);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.editor-top-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.is-focus-mode .editor-top-bar {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 var(--spacing-3);
+  background: var(--bg-surface);
+}
+
+.top-bar-cluster {
+  display: flex;
   align-items: center;
-}
-
-.view-title {
-  font-size: var(--text-xl);
-  font-weight: 800;
-  letter-spacing: 0.05em;
-}
-
-.view-subtitle {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  margin-top: 0.2rem;
-}
-
-.header-actions {
-  display: flex;
-  gap: var(--spacing-3);
-}
-
-.config-bar {
-  padding: var(--spacing-4);
-  display: flex;
-  gap: var(--spacing-5);
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.config-col {
-  display: flex;
-  flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
 }
 
-.name-col {
-  flex: 1;
-  min-width: 240px;
+.cluster-left {
+  flex-shrink: 0;
 }
 
-.config-label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.05em;
+.cluster-center {
+  flex-shrink: 0;
 }
 
-.toggle-group {
+.cluster-right {
+  flex-shrink: 0;
+  margin-left: auto;
+  gap: 0.4rem;
+}
+
+/* Badge do Editor */
+.editor-brand-chip {
   display: flex;
-  background: var(--bg-card);
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.brand-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editor-brand-text {
+  font-size: var(--text-xs);
+  letter-spacing: -0.01em;
+}
+
+/* Campo de Nome com Alta Affordance de Edição e Estilo Clean */
+.editable-name-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  cursor: text;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.editable-name-field:hover {
+  background: var(--bg-surface);
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-xs);
+  transform: translateY(-0.5px);
+}
+
+.editable-name-field:hover .edit-affordance-icon {
+  color: var(--color-primary);
+  opacity: 1;
+  transform: rotate(-12deg) scale(1.15);
+}
+
+.editable-name-field:focus-within {
+  background: var(--bg-surface);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-bg);
+}
+
+.editable-name-field:focus-within .edit-affordance-icon {
+  color: var(--color-primary);
+  opacity: 0.9;
+}
+
+.clean-name-input {
+  width: 125px;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-family: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0;
+  cursor: text;
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.clean-name-input:focus {
+  width: 175px;
+}
+
+.edit-affordance-icon {
+  color: var(--text-muted);
+  opacity: 0.65;
+  flex-shrink: 0;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.bar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+  margin: 0 0.1rem;
+}
+
+/* Segmentos Didáticos de Topologia (Direção e Custos) */
+.topology-segment {
+  display: flex;
+  align-items: center;
+}
+
+.segment-pill-track {
+  display: flex;
+  background: var(--bg-subtle);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  padding: 2.5px;
+  gap: 2px;
 }
 
-.toggle-btn {
-  padding: 0.45rem 0.8rem;
+/* =========================================================================
+   CONTROLES FLUFFY (Opções inativas mostram apenas ícone; ativa expande elástica)
+   ========================================================================= */
+
+.fluffy-option-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.32rem 0.52rem;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-secondary);
-  border-radius: 0;
+  transition: 
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    padding 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.toggle-btn.active {
-  background: var(--color-primary);
-  color: #ffffff;
-  font-weight: 600;
+.fluffy-option-btn .pill-icon,
+.fluffy-option-btn .tab-icon {
+  flex-shrink: 0;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
 }
 
-.validation-banner {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-3) var(--spacing-4);
-  display: flex;
-  flex-direction: column;
+/* Label que encolhe a zero quando inativa e expande fluffy quando ativa */
+.fluffy-label {
+  display: inline-flex;
+  align-items: center;
   gap: 0.35rem;
-}
-
-.alert-line {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2);
-  font-size: var(--text-xs);
-}
-
-.tables-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-4);
-  flex: 1;
-  min-height: 440px;
-}
-
-.table-card {
-  display: flex;
-  flex-direction: column;
+  max-width: 0;
+  opacity: 0;
+  transform: scale(0.75) translateX(-8px);
   overflow: hidden;
-  background: var(--bg-surface);
+  white-space: nowrap;
+  pointer-events: none;
+  margin-left: 0;
+  transition: 
+    max-width 0.36s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.36s cubic-bezier(0.34, 1.56, 0.64, 1),
+    margin-left 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.table-card-header {
-  padding: var(--spacing-3) var(--spacing-4);
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-subtle);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/* Hover em opções inativas (ícone ganha destaque sutil) */
+.fluffy-option-btn:hover:not(.active) {
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.04);
+  transform: translateY(-0.5px) scale(1.06);
 }
 
-.table-card-title {
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.05em;
+.fluffy-option-btn:hover:not(.active) .pill-icon,
+.fluffy-option-btn:hover:not(.active) .tab-icon {
+  transform: scale(1.12);
   color: var(--text-primary);
 }
 
-.table-scroll-container {
-  flex: 1;
-  overflow-y: auto;
-  max-height: 480px;
+.fluffy-option-btn:active {
+  transform: scale(0.95);
 }
 
-.empty-cell {
-  text-align: center;
-  color: var(--text-muted);
-  font-style: italic;
-  padding: var(--spacing-6) !important;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.actions-cell {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--spacing-1);
-}
-
-.icon-action-btn {
-  padding: 0.3rem;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-}
-
-.icon-action-btn:hover {
+/* ESTADO ATIVO: Expansão fofa (fluffy pop) com sombra macia */
+.fluffy-option-btn.active {
+  background: var(--bg-surface);
   color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(79, 99, 246, 0.14), 0 1px 3px rgba(16, 24, 40, 0.06);
+  font-weight: 700;
+  padding: 0.32rem 0.72rem;
+  animation: fluffyPop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.fluffy-option-btn.active .fluffy-label {
+  max-width: 160px;
+  opacity: 1;
+  transform: scale(1) translateX(0);
+  margin-left: 0.4rem;
+  pointer-events: auto;
+}
+
+.fluffy-option-btn.active .pill-icon,
+.fluffy-option-btn.active .tab-icon {
+  color: var(--color-primary);
+  transform: scale(1.12);
+}
+
+@keyframes fluffyPop {
+  0% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* =========================================================================
+   2. CENTRO: MODOS DE TRABALHO TRACK
+   ========================================================================= */
+.workspaces-pill-track {
+  display: flex;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 3px;
+}
+
+.tab-count-badge {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.38rem;
+  border-radius: 4px;
   background: var(--color-primary-bg);
+  color: var(--color-primary);
+  font-weight: 700;
 }
 
-.icon-action-btn.danger:hover {
-  color: var(--color-danger);
-  background: var(--color-danger-bg);
+/* =========================================================================
+   3. DIREITA: DIAGNÓSTICO, MISSÕES, FOCO E BOTÃO PRIMÁRIO
+   ========================================================================= */
+
+/* Aviso com Pulso Delicado */
+.compact-warning-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: var(--radius-md);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  font-size: 0.72rem;
+  color: var(--color-warning);
+  cursor: help;
+  user-select: none;
+  animation: fadeIn 0.3s ease;
 }
 
-.icon-xs { width: 14px; height: 14px; }
-.icon-sm { width: 16px; height: 16px; }
+.warning-pulse-icon {
+  animation: pulseWarn 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
 
-@media (max-width: 960px) {
-  .tables-grid {
-    grid-template-columns: 1fr;
+@keyframes pulseWarn {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.9); }
+}
+
+/* Botão de Missões Gamificadas */
+.missions-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.65rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.missions-pill-btn:hover {
+  border-color: var(--border-accent);
+  background: var(--bg-surface);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+
+.missions-pill-btn:active {
+  transform: scale(0.97);
+}
+
+.missions-pill-btn:hover .trophy-icon {
+  animation: trophyWiggle 0.6s ease;
+}
+
+@keyframes trophyWiggle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-12deg) scale(1.15); }
+  60% { transform: rotate(12deg) scale(1.15); }
+}
+
+.missions-pill-btn.all-done {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.trophy-icon {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.missions-counter {
+  color: var(--text-primary);
+}
+
+.missions-progress-ring {
+  width: 26px;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-left: 0.1rem;
+}
+
+.missions-progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.missions-pill-btn.all-done .missions-progress-fill {
+  background: #10b981;
+}
+
+/* Botão de Modo Foco */
+.focus-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.65rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.focus-mode-btn .focus-icon {
+  transition: transform 0.25s ease;
+}
+
+.focus-mode-btn:hover {
+  color: var(--color-primary);
+  background: var(--bg-surface);
+  border-color: var(--border-accent);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+
+.focus-mode-btn:active {
+  transform: scale(0.97);
+}
+
+.focus-mode-btn:hover .focus-icon {
+  transform: scale(1.15);
+}
+
+.focus-mode-btn.active {
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+/* Botão Primário: Testar no Laboratório */
+.btn-simulate-lab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #4f63f6 0%, #3e51e8 100%);
+  color: #ffffff;
+  font-size: var(--text-xs);
+  box-shadow: 0 2px 8px rgba(79, 99, 246, 0.28);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.btn-simulate-lab:hover {
+  background: linear-gradient(135deg, #5b6efa 0%, #4f63f6 100%);
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px rgba(79, 99, 246, 0.42);
+  color: #ffffff;
+}
+
+.btn-simulate-lab:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.play-icon-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-fast);
+}
+
+.btn-simulate-lab:hover .play-icon-bubble {
+  transform: scale(1.15) translateX(1px);
+}
+
+/* =========================================================================
+   ÁREA DE CONSTRUÇÃO PRINCIPAL (FLEX: 1)
+   ========================================================================= */
+.editor-main-viewport {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+
+.is-focus-mode .editor-main-viewport {
+  border-radius: 0;
+  border: none;
+}
+
+.mode-workspace-wrapper {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+
+/* =========================================================================
+   ADAPTAÇÃO AUTOMÁTICA (MENU LATERAL ABERTO / TELAS MENORES)
+   ========================================================================= */
+
+/* Quando a sidebar estiver aberta */
+.is-sidebar-open .editor-brand-text {
+  display: none;
+}
+
+.is-sidebar-open .focus-text {
+  display: none;
+}
+
+.is-sidebar-open .clean-name-input {
+  width: 95px;
+}
+
+.is-sidebar-open .clean-name-input:focus {
+  width: 140px;
+}
+
+.is-sidebar-open .compact-warning-chip {
+  max-width: 95px;
+}
+
+/* Container Queries para containers menores que 1260px */
+@container editor (max-width: 1260px) {
+  .editor-brand-text {
+    display: none;
+  }
+  .focus-text {
+    display: none;
+  }
+  .clean-name-input {
+    width: 95px;
+  }
+  .clean-name-input:focus {
+    width: 140px;
+  }
+  .compact-warning-chip {
+    max-width: 95px;
   }
 }
 
-@media (max-width: 768px) {
-  .editor-view {
-    padding: var(--spacing-3);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px));
-    gap: var(--spacing-3);
+/* Espaço ainda mais compacto (< 1100px) */
+@container editor (max-width: 1100px) {
+  .missions-progress-ring {
+    display: none;
   }
-
-  .view-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-2);
+  .clean-name-input {
+    width: 75px;
   }
-
-  .header-actions {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2);
+  .compact-warning-chip .warning-text {
+    display: none;
   }
+}
 
-  .header-actions .btn {
-    width: 100%;
-    justify-content: center;
+/* Fallback Media Queries */
+@media (max-width: 1350px) {
+  .focus-text,
+  .editor-brand-text {
+    display: none;
   }
-
-  .config-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--spacing-3);
-    padding: var(--spacing-3);
+  .clean-name-input {
+    width: 95px;
   }
-
-  .config-col {
-    width: 100%;
+  .clean-name-input:focus {
+    width: 140px;
   }
-
-  .toggle-group {
-    display: flex;
-    width: 100%;
+  .compact-warning-chip {
+    max-width: 95px;
   }
+}
 
-  .toggle-btn {
-    flex: 1;
-    font-size: 0.68rem;
-    padding: 0.4rem 0.2rem;
-    text-align: center;
+@media (max-width: 1000px) {
+  .missions-progress-ring {
+    display: none;
+  }
+  .clean-name-input {
+    width: 75px;
   }
 }
 </style>

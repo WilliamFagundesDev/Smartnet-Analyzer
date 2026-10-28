@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 
 /**
- * Motor de Renderização e Visualização 3D com Three.js
- * Gerencia a cena espacial, luzes, nós esféricos, conexões, etiquetas e interações de câmera.
+ * Motor de Renderização e Visualização Espacial 3D com Three.js
+ * Arquitetura de alto padrão, materiais PBR, feedback visual por raio e iluminação refinada.
  */
 export class ThreeSceneManager {
   /**
@@ -27,6 +27,7 @@ export class ThreeSceneManager {
     this.edgesGroup = new THREE.Group()
     this.labelsGroup = new THREE.Group()
     this.edgeLabelsGroup = new THREE.Group()
+    this.haloGroup = new THREE.Group()
 
     // Mapas para busca rápida por ID
     this.nodeMeshes = new Map() // vertexId -> Mesh
@@ -40,9 +41,11 @@ export class ThreeSceneManager {
     this.cameraTarget = new THREE.Vector3(0, 0, 0)
     this.spherical = new THREE.Spherical(85, Math.PI / 3, Math.PI / 4)
 
-    // Raycaster para seleção
+    // Raycaster para seleção e hover
     this.raycaster = new THREE.Raycaster()
     this.mouse = new THREE.Vector2()
+    this.hoveredVertexId = null
+    this.hoveredEdgeId = null
 
     // Suporte a Gestos Touch Mobile
     this.previousTouchPosition = { x: 0, y: 0 }
@@ -57,17 +60,22 @@ export class ThreeSceneManager {
     const width = this.container.clientWidth || 800
     const height = this.container.clientHeight || 500
 
-    // 1. Cena com suporte a Tema Claro (padrão) e Escuro
+    // 1. Cena com suporte a Tema Claro e Escuro
     this.scene = new THREE.Scene()
     const isLight = this.theme === 'light'
-    const bgColor = isLight ? 0xf1f5f9 : 0x0a0d14
+    const bgColor = isLight ? 0xf8fafc : 0x090d16
     this.scene.background = new THREE.Color(bgColor)
-    this.scene.fog = new THREE.FogExp2(bgColor, isLight ? 0.003 : 0.004)
+    this.scene.fog = new THREE.FogExp2(bgColor, isLight ? 0.0025 : 0.0035)
 
-    // Grade de referência sutil
-    this.gridHelper = new THREE.GridHelper(160, 32, isLight ? 0x94a3b8 : 0x334155, isLight ? 0xcbd5e1 : 0x1e293b)
-    this.gridHelper.position.y = -35
-    this.gridHelper.material.opacity = isLight ? 0.6 : 0.4
+    // Grade de referência delicada
+    this.gridHelper = new THREE.GridHelper(
+      180,
+      36,
+      isLight ? 0xd8deeb : 0x1e293b,
+      isLight ? 0xe7eaf2 : 0x141c2e
+    )
+    this.gridHelper.position.y = -36
+    this.gridHelper.material.opacity = isLight ? 0.7 : 0.45
     this.gridHelper.material.transparent = true
     this.scene.add(this.gridHelper)
 
@@ -75,28 +83,29 @@ export class ThreeSceneManager {
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000)
     this.updateCameraPosition()
 
-    // 3. Renderizador WebGL
+    // 3. Renderizador WebGL de Precisão
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
     this.renderer.setSize(width, height)
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.1
+    this.renderer.toneMappingExposure = 1.05
     this.container.appendChild(this.renderer.domElement)
 
-    // 4. Luzes de Estúdio Neutras (Cores puras sem distorção cromática)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95)
+    // 4. Iluminação PBR balanceada
+    const ambientLight = new THREE.AmbientLight(0xffffff, isLight ? 0.95 : 0.75)
     this.scene.add(ambientLight)
 
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.4)
-    dirLight1.position.set(60, 80, 50)
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, isLight ? 1.4 : 1.6)
+    dirLight1.position.set(70, 90, 60)
     this.scene.add(dirLight1)
 
-    const dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.8)
-    dirLight2.position.set(-60, -40, -50)
+    const dirLight2 = new THREE.DirectionalLight(isLight ? 0x94a3b8 : 0x38bdf8, isLight ? 0.6 : 0.8)
+    dirLight2.position.set(-70, -40, -60)
     this.scene.add(dirLight2)
 
-    // Adiciona os grupos à cena
+    // Adiciona grupos à cena na ordem de profundidade
     this.scene.add(this.edgesGroup)
+    this.scene.add(this.haloGroup)
     this.scene.add(this.nodesGroup)
     this.scene.add(this.labelsGroup)
     this.scene.add(this.edgeLabelsGroup)
@@ -129,7 +138,7 @@ export class ThreeSceneManager {
     dom.addEventListener('contextmenu', this._onContextMenu)
     window.addEventListener('resize', this._onResize)
 
-    // Touch events para dispositivos móveis
+    // Touch events para mobile
     dom.addEventListener('touchstart', this._onTouchStart, { passive: false })
     dom.addEventListener('touchmove', this._onTouchMove, { passive: false })
     dom.addEventListener('touchend', this._onTouchEnd, { passive: false })
@@ -183,7 +192,7 @@ export class ThreeSceneManager {
     }
   }
 
-  onTouchEnd(e) {
+  onTouchEnd() {
     if (!this.touchHasMovedSignificantly && this.lastTouchCoords.clientX) {
       this.performRaycast(this.lastTouchCoords)
     }
@@ -225,13 +234,41 @@ export class ThreeSceneManager {
       this.cameraTarget.addScaledVector(right, -deltaX * panSpeed)
       this.cameraTarget.y += deltaY * panSpeed
       this.updateCameraPosition()
+    } else {
+      // Hover feedback quando o mouse apenas desliza
+      this._handleHoverRaycast(e)
     }
 
     this.previousMousePosition = { x: e.clientX, y: e.clientY }
   }
 
+  _handleHoverRaycast(event) {
+    if (!this.renderer || !this.camera) return
+    const rect = this.renderer.domElement.getBoundingClientRect()
+    if (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    ) {
+      return
+    }
+
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+    this.raycaster.setFromCamera(this.mouse, this.camera)
+
+    const nodeIntersects = this.raycaster.intersectObjects(this.nodesGroup.children, true)
+    const edgeIntersects = this.raycaster.intersectObjects(this.edgesGroup.children, true)
+
+    if (nodeIntersects.length > 0 || edgeIntersects.length > 0) {
+      this.renderer.domElement.style.cursor = 'pointer'
+    } else {
+      this.renderer.domElement.style.cursor = 'default'
+    }
+  }
+
   onMouseUp(e) {
-    // Se foi apenas um clique sem arrastar, efetua raycasting para seleção
     if (!this.hasMovedSignificantly && (this.isDragging || this.isPanning)) {
       this.performRaycast(e)
     }
@@ -298,10 +335,6 @@ export class ThreeSceneManager {
 
   /**
    * Atualiza ou recria a cena gráfica 3D a partir do GraphModel e dos destaques algorítmicos
-   * @param {import('../graph/graphModel.js').GraphModel} graph
-   * @param {Object} [highlights] { vertexStatus: {}, edgeStatus: {} }
-   * @param {string|null} [selectedVertexId]
-   * @param {string|null} [selectedEdgeId]
    */
   updateGraph(graph, highlights = {}, selectedVertexId = null, selectedEdgeId = null) {
     if (!graph || !this.scene) return
@@ -313,12 +346,13 @@ export class ThreeSceneManager {
     this._clearGroup(this.edgesGroup)
     this._clearGroup(this.labelsGroup)
     this._clearGroup(this.edgeLabelsGroup)
+    this._clearGroup(this.haloGroup)
     this.nodeMeshes.clear()
     this.edgeMeshes.clear()
 
     const nodePositions = new Map()
 
-    // 1. Criação dos Nós 3D
+    // 1. Criação dos Nós 3D com Geometria Limpa
     graph.vertices.forEach(v => {
       const pos = new THREE.Vector3(v.x || 0, v.y || 0, v.z || 0)
       nodePositions.set(v.id, pos)
@@ -332,24 +366,40 @@ export class ThreeSceneManager {
       nodeObj.position.copy(pos)
       nodeObj.userData = { vertexId: v.id, label: v.label }
 
-      // Esfera Central Sólida e Elegante
-      const sphereGeo = new THREE.SphereGeometry(2.5, 32, 32)
+      // Esfera PBR do Nó
+      const sphereGeo = new THREE.SphereGeometry(2.4, 32, 32)
       const sphereMat = new THREE.MeshStandardMaterial({
         color: nodeColor.base,
         emissive: nodeColor.emissive,
-        emissiveIntensity: isSelected || status === 'current' ? 1.5 : 0.6,
-        roughness: 0.25,
-        metalness: 0.7
+        emissiveIntensity: isSelected || status === 'current' ? 1.4 : 0.5,
+        roughness: 0.28,
+        metalness: 0.35
       })
       const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat)
       nodeObj.add(sphereMesh)
 
+      // Halo / Anel luminoso para o nó atual sendo processado
+      if (status === 'current' || isSelected) {
+        const ringGeo = new THREE.RingGeometry(2.8, 3.4, 32)
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: isSelected ? 0x4f63f6 : 0xf59e0b,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.8
+        })
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat)
+        ringMesh.position.copy(pos)
+        ringMesh.lookAt(this.camera.position)
+        ringMesh.userData = { isHalo: true }
+        this.haloGroup.add(ringMesh)
+      }
+
       this.nodesGroup.add(nodeObj)
       this.nodeMeshes.set(v.id, nodeObj)
 
-      // Rótulo do Vértice com Reconhecimento Semântico de Cor
-      const labelSprite = this._createLabelSprite(`${v.id} - ${v.label}`, status, isSelected)
-      labelSprite.position.set(pos.x, pos.y + 4.5, pos.z)
+      // Rótulo Sprite de Alta Definição
+      const labelSprite = this._createLabelSprite(`${v.id} · ${v.label}`, status, isSelected)
+      labelSprite.position.set(pos.x, pos.y + 4.4, pos.z)
       this.labelsGroup.add(labelSprite)
     })
 
@@ -369,21 +419,22 @@ export class ThreeSceneManager {
       const distance = p1.distanceTo(p2)
       const midPoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5)
 
-      // Conexão em Cilindro
-      const radius = status === 'tree' || status === 'path' || isSelected ? 0.45 : 0.22
+      // Cilindro de conexão
+      const isThick = status === 'tree' || status === 'path' || isSelected
+      const radius = isThick ? 0.42 : 0.2
       const cylinderGeo = new THREE.CylinderGeometry(radius, radius, distance, 14)
       const cylinderMat = new THREE.MeshStandardMaterial({
         color: edgeColor.base,
         emissive: edgeColor.emissive,
-        emissiveIntensity: status ? 1.3 : 0.4,
-        roughness: 0.3,
-        metalness: 0.6,
+        emissiveIntensity: status ? 1.2 : 0.35,
+        roughness: 0.32,
+        metalness: 0.5,
         transparent: true,
-        opacity: status === 'cycle' ? 0.6 : 0.9
+        opacity: status === 'cycle' ? 0.65 : 0.95
       })
       const cylinderMesh = new THREE.Mesh(cylinderGeo, cylinderMat)
 
-      // Orienta o cilindro entre p1 e p2
+      // Posiciona e orienta o cilindro entre p1 e p2
       cylinderMesh.position.copy(midPoint)
       cylinderMesh.quaternion.setFromUnitVectors(
         new THREE.Vector3(0, 1, 0),
@@ -391,10 +442,10 @@ export class ThreeSceneManager {
       )
       edgeObj.add(cylinderMesh)
 
-      // Se direcionado: Adiciona Cone de Direção (Seta)
+      // Se direcionado: Adiciona Seta de Direção
       if (graph.directed) {
-        const coneRadius = 1.0
-        const coneHeight = 2.2
+        const coneRadius = 0.95
+        const coneHeight = 2.1
         const coneGeo = new THREE.ConeGeometry(coneRadius, coneHeight, 16)
         const coneMat = new THREE.MeshStandardMaterial({
           color: edgeColor.base,
@@ -403,7 +454,6 @@ export class ThreeSceneManager {
         })
         const coneMesh = new THREE.Mesh(coneGeo, coneMat)
 
-        // Posiciona a seta a 75% do caminho de p1 para p2
         const arrowPos = new THREE.Vector3().lerpVectors(p1, p2, 0.72)
         coneMesh.position.copy(arrowPos)
         coneMesh.quaternion.setFromUnitVectors(
@@ -429,7 +479,7 @@ export class ThreeSceneManager {
   setTheme(theme) {
     this.theme = theme
     const isLight = theme === 'light'
-    const bgColor = isLight ? 0xf1f5f9 : 0x0a0d14
+    const bgColor = isLight ? 0xf8fafc : 0x090d16
     if (this.scene) {
       this.scene.background.set(bgColor)
       if (this.scene.fog) {
@@ -441,9 +491,14 @@ export class ThreeSceneManager {
       if (this.gridHelper.geometry) this.gridHelper.geometry.dispose()
       if (this.gridHelper.material) this.gridHelper.material.dispose()
 
-      this.gridHelper = new THREE.GridHelper(160, 32, isLight ? 0x94a3b8 : 0x334155, isLight ? 0xcbd5e1 : 0x1e293b)
-      this.gridHelper.position.y = -35
-      this.gridHelper.material.opacity = isLight ? 0.6 : 0.4
+      this.gridHelper = new THREE.GridHelper(
+        180,
+        36,
+        isLight ? 0xd8deeb : 0x1e293b,
+        isLight ? 0xe7eaf2 : 0x141c2e
+      )
+      this.gridHelper.position.y = -36
+      this.gridHelper.material.opacity = isLight ? 0.7 : 0.45
       this.gridHelper.material.transparent = true
       this.scene.add(this.gridHelper)
     }
@@ -452,38 +507,37 @@ export class ThreeSceneManager {
   _getNodeColor(type, status, isSelected) {
     const isLight = this.theme === 'light'
     if (isSelected) {
-      return { base: isLight ? 0x2563eb : 0xffffff, emissive: 0x3b82f6 }
+      return { base: 0x4f63f6, emissive: 0x3e51e8 }
     }
-    // Cores Semânticas Claras para Auxiliar Identificação Imediata
     if (status === 'current') {
-      return { base: isLight ? 0xd97706 : 0xf59e0b, emissive: isLight ? 0xb45309 : 0xd97706 } // Âmbar Dourado
+      return { base: 0xf59e0b, emissive: 0xd97706 } // Âmbar Dourado
     }
     if (status === 'visited') {
-      return { base: isLight ? 0x059669 : 0x10b981, emissive: isLight ? 0x047857 : 0x059669 } // Verde Esmeralda
+      return { base: 0x10b981, emissive: 0x059669 } // Verde Esmeralda
     }
     if (status === 'queued') {
-      return { base: isLight ? 0x7c3aed : 0x8b5cf6, emissive: isLight ? 0x6d28d9 : 0x6d28d9 } // Violeta Intenso
+      return { base: 0x8b5cf6, emissive: 0x7c3aed } // Violeta
     }
     if (status === 'settled') {
-      return { base: isLight ? 0x0284c7 : 0x0284c7, emissive: isLight ? 0x0369a1 : 0x0369a1 } // Azul Aço
+      return { base: 0x0ea5e9, emissive: 0x0284c7 } // Azul Aço
     }
     if (status === 'path') {
-      return { base: isLight ? 0x0284c7 : 0x38bdf8, emissive: isLight ? 0x0369a1 : 0x0284c7 } // Azul Céu
+      return { base: 0x06b6d4, emissive: 0x0891b2 } // Ciano Vibrante
     }
     if (status === 'source') {
-      return { base: isLight ? 0x1d4ed8 : 0x3b82f6, emissive: 0x1d4ed8 } // Azul Real
+      return { base: 0x4f63f6, emissive: 0x3e51e8 } // Azul Primário
     }
     if (status === 'target') {
-      return { base: isLight ? 0xdc2626 : 0xef4444, emissive: 0xb91c1c } // Vermelho
+      return { base: 0xef4444, emissive: 0xdc2626 } // Vermelho
     }
 
-    // Estado Padrão Não-Visitado (No modo claro: grafite escuro de alto contraste para projetor!)
+    // Estado Padrão Não-Visitado
     if (isLight) {
       switch (type) {
         case 'hub':
-          return { base: 0x1e293b, emissive: 0x0f172a }
+          return { base: 0x172033, emissive: 0x0f172a }
         case 'datacenter':
-          return { base: 0x1e293b, emissive: 0x0f172a }
+          return { base: 0x172033, emissive: 0x0f172a }
         default:
           return { base: 0x334155, emissive: 0x1e293b }
       }
@@ -502,20 +556,19 @@ export class ThreeSceneManager {
   _getEdgeColor(status, isSelected) {
     const isLight = this.theme === 'light'
     if (isSelected) {
-      return { base: isLight ? 0x2563eb : 0xffffff, emissive: 0x3b82f6 }
+      return { base: 0x4f63f6, emissive: 0x3e51e8 }
     }
-    // Cores Semânticas de Conexão
     if (status === 'tree') {
-      return { base: isLight ? 0x059669 : 0x10b981, emissive: isLight ? 0x047857 : 0x059669 } // Verde
+      return { base: 0x10b981, emissive: 0x059669 } // Verde
     }
     if (status === 'cycle') {
-      return { base: isLight ? 0xdc2626 : 0xef4444, emissive: isLight ? 0xb91c1c : 0x991b1b } // Vermelho
+      return { base: 0xef4444, emissive: 0xdc2626 } // Vermelho
     }
     if (status === 'examining') {
-      return { base: isLight ? 0xd97706 : 0xf59e0b, emissive: isLight ? 0xb45309 : 0xb45309 } // Âmbar
+      return { base: 0xf59e0b, emissive: 0xd97706 } // Âmbar
     }
     if (status === 'path') {
-      return { base: isLight ? 0x0284c7 : 0x38bdf8, emissive: isLight ? 0x0369a1 : 0x0284c7 } // Azul
+      return { base: 0x0ea5e9, emissive: 0x0284c7 } // Ciano
     }
     return { base: isLight ? 0x94a3b8 : 0x475569, emissive: isLight ? 0x64748b : 0x1e293b }
   }
@@ -523,114 +576,114 @@ export class ThreeSceneManager {
   _createLabelSprite(text, status = null, isSelected = false) {
     const isLight = this.theme === 'light'
     const canvas = document.createElement('canvas')
-    canvas.width = 256
-    canvas.height = 64
+    canvas.width = 384
+    canvas.height = 96
     const ctx = canvas.getContext('2d')
 
-    // Cores Semânticas de Alto Contraste no Rótulo
-    let bgColor = isLight ? 'rgba(255, 255, 255, 0.96)' : 'rgba(15, 23, 42, 0.92)'
-    let borderColor = isLight ? '#94a3b8' : 'rgba(255, 255, 255, 0.25)'
-    let textColor = isLight ? '#0f172a' : '#f8fafc'
+    // Estilos de Pill com contraste
+    let bgColor = isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(16, 21, 36, 0.92)'
+    let borderColor = isLight ? '#d8deeb' : 'rgba(255, 255, 255, 0.2)'
+    let textColor = isLight ? '#172033' : '#f8fafc'
 
     if (isSelected) {
-      bgColor = isLight ? '#2563eb' : '#3b82f6'
+      bgColor = '#4f63f6'
       borderColor = '#ffffff'
       textColor = '#ffffff'
     } else if (status === 'current') {
-      bgColor = isLight ? '#d97706' : '#f59e0b'
-      borderColor = isLight ? '#b45309' : '#fde68a'
-      textColor = isLight ? '#ffffff' : '#1c1917'
+      bgColor = '#f59e0b'
+      borderColor = '#d97706'
+      textColor = '#ffffff'
     } else if (status === 'visited') {
-      bgColor = isLight ? '#059669' : '#10b981'
-      borderColor = isLight ? '#047857' : '#6ee7b7'
+      bgColor = '#10b981'
+      borderColor = '#059669'
       textColor = '#ffffff'
     } else if (status === 'queued') {
-      bgColor = isLight ? '#7c3aed' : '#8b5cf6'
-      borderColor = isLight ? '#6d28d9' : '#c4b5fd'
+      bgColor = '#8b5cf6'
+      borderColor = '#7c3aed'
       textColor = '#ffffff'
     } else if (status === 'path') {
-      bgColor = isLight ? '#0284c7' : '#38bdf8'
-      borderColor = '#ffffff'
+      bgColor = '#0ea5e9'
+      borderColor = '#0284c7'
       textColor = '#ffffff'
     } else if (status === 'source') {
-      bgColor = isLight ? '#2563eb' : '#3b82f6'
+      bgColor = '#4f63f6'
       borderColor = '#ffffff'
       textColor = '#ffffff'
     } else if (status === 'target') {
-      bgColor = isLight ? '#dc2626' : '#ef4444'
+      bgColor = '#ef4444'
       borderColor = '#ffffff'
       textColor = '#ffffff'
     }
 
     ctx.fillStyle = bgColor
     ctx.strokeStyle = borderColor
-    ctx.lineWidth = 2.5
+    ctx.lineWidth = 3
     ctx.beginPath()
-    ctx.roundRect(8, 8, 240, 48, 14)
+    ctx.roundRect(12, 12, 360, 72, 22)
     ctx.fill()
     ctx.stroke()
 
-    // Texto
+    // Texto Nítido
     ctx.fillStyle = textColor
-    ctx.font = 'bold 20px Inter, sans-serif'
+    ctx.font = 'bold 28px Inter, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(text, 128, 32)
+    ctx.fillText(text, 192, 48)
 
     const texture = new THREE.CanvasTexture(canvas)
     const material = new THREE.SpriteMaterial({ map: texture, depthTest: false })
     const sprite = new THREE.Sprite(material)
-    sprite.scale.set(9, 2.25, 1)
+    sprite.scale.set(9.5, 2.4, 1)
     return sprite
   }
 
   _createWeightBadgeSprite(weightText, status) {
     const isLight = this.theme === 'light'
     const canvas = document.createElement('canvas')
-    canvas.width = 96
-    canvas.height = 64
+    canvas.width = 128
+    canvas.height = 80
     const ctx = canvas.getContext('2d')
 
-    let bgColor = isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 42, 0.92)'
-    let borderColor = isLight ? '#cbd5e1' : 'rgba(255, 255, 255, 0.2)'
-    let textColor = isLight ? '#0f172a' : '#e2e8f0'
+    let bgColor = isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(16, 21, 36, 0.94)'
+    let borderColor = isLight ? '#d8deeb' : 'rgba(255, 255, 255, 0.2)'
+    let textColor = isLight ? '#172033' : '#e2e8f0'
 
     if (status === 'tree') {
-      bgColor = isLight ? 'rgba(5, 150, 105, 0.15)' : 'rgba(6, 78, 59, 0.95)'
-      borderColor = isLight ? '#059669' : '#10b981'
-      textColor = isLight ? '#047857' : '#34d399'
+      bgColor = isLight ? 'rgba(16, 185, 129, 0.15)' : 'rgba(6, 78, 59, 0.95)'
+      borderColor = '#10b981'
+      textColor = isLight ? '#059669' : '#34d399'
     } else if (status === 'cycle') {
-      bgColor = isLight ? 'rgba(220, 38, 38, 0.15)' : 'rgba(127, 29, 29, 0.95)'
-      borderColor = isLight ? '#dc2626' : '#ef4444'
-      textColor = isLight ? '#b91c1c' : '#f87171'
+      bgColor = isLight ? 'rgba(239, 68, 68, 0.15)' : 'rgba(127, 29, 29, 0.95)'
+      borderColor = '#ef4444'
+      textColor = isLight ? '#dc2626' : '#f87171'
     } else if (status === 'path') {
-      bgColor = isLight ? 'rgba(2, 132, 199, 0.15)' : 'rgba(14, 116, 144, 0.95)'
-      borderColor = isLight ? '#0284c7' : '#38bdf8'
-      textColor = isLight ? '#0369a1' : '#ffffff'
+      bgColor = isLight ? 'rgba(14, 165, 233, 0.15)' : 'rgba(14, 116, 144, 0.95)'
+      borderColor = '#0ea5e9'
+      textColor = isLight ? '#0284c7' : '#ffffff'
     } else if (status === 'examining') {
-      bgColor = isLight ? 'rgba(217, 119, 6, 0.15)' : 'rgba(120, 53, 15, 0.95)'
-      borderColor = isLight ? '#d97706' : '#f59e0b'
-      textColor = isLight ? '#b45309' : '#fde68a'
+      bgColor = isLight ? 'rgba(245, 158, 11, 0.15)' : 'rgba(120, 53, 15, 0.95)'
+      borderColor = '#f59e0b'
+      textColor = isLight ? '#d97706' : '#fde68a'
     }
 
     ctx.fillStyle = bgColor
     ctx.strokeStyle = borderColor
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2.5
     ctx.beginPath()
-    ctx.roundRect(8, 8, 80, 48, 10)
+    ctx.roundRect(10, 10, 108, 60, 14)
     ctx.fill()
     ctx.stroke()
 
     ctx.fillStyle = textColor
-    ctx.font = 'bold 22px JetBrains Mono, monospace'
+    ctx.font = 'bold 28px JetBrains Mono, monospace'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(weightText, 48, 32)
+    ctx.fillText(weightText, 64, 40)
 
     const texture = new THREE.CanvasTexture(canvas)
     const material = new THREE.SpriteMaterial({ map: texture, depthTest: false })
     const sprite = new THREE.Sprite(material)
-    sprite.scale.set(3.8, 2.5, 1)
+    sprite.scale.set(3.8, 2.4, 1)
     return sprite
   }
 
@@ -685,6 +738,13 @@ export class ThreeSceneManager {
       this.updateCameraPosition()
     }
 
+    // Orientar anéis de halo para a câmera se existirem
+    if (this.haloGroup.children.length > 0) {
+      this.haloGroup.children.forEach(halo => {
+        halo.lookAt(this.camera.position)
+      })
+    }
+
     if (this.renderer && this.scene && this.camera) {
       this.renderer.render(this.scene, this.camera)
     }
@@ -715,6 +775,7 @@ export class ThreeSceneManager {
     this._clearGroup(this.edgesGroup)
     this._clearGroup(this.labelsGroup)
     this._clearGroup(this.edgeLabelsGroup)
+    this._clearGroup(this.haloGroup)
 
     if (this.renderer) {
       this.renderer.dispose()

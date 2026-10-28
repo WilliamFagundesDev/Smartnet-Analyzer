@@ -2,7 +2,7 @@
   <div class="view-container algorithm-lab-view">
     <div class="view-header">
       <div>
-        <h1 class="view-title">LABORATÓRIO ACADÊMICO DE ALGORITMOS</h1>
+        <h1 class="view-title">Laboratório de Algoritmos</h1>
         <p class="view-subtitle">Simulação passo a passo, percursos, menores caminhos e árvores geradoras mínimas</p>
       </div>
     </div>
@@ -17,9 +17,9 @@
         <div class="card-header-bar">
           <div class="header-left">
             <Box class="icon-sm text-blue" />
-            <span class="card-header-title">ANIMAÇÃO VISUAL DO ALGORITMO &middot; 3D</span>
+            <span class="card-header-title">Visualização Espacial &middot; 3D</span>
           </div>
-          <span class="badge badge-amber" v-if="currentStepIndex >= 0">
+          <span class="badge badge-amber font-mono" v-if="currentStepIndex >= 0 && events.length > 0">
             Passo {{ currentStepIndex + 1 }} de {{ events.length }}
           </span>
         </div>
@@ -67,20 +67,21 @@ const { currentStepIndex, events } = useAlgorithmRunner()
 }
 
 .view-title {
-  font-size: var(--text-xl);
+  font-size: 1.35rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .view-subtitle {
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  margin-top: 0.2rem;
+  margin-top: 0.15rem;
 }
 
 .lab-workspace {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
+  grid-template-columns: 1.15fr 1fr;
   gap: var(--spacing-4);
   flex: 1;
   min-height: 520px;
@@ -92,10 +93,13 @@ const { currentStepIndex, events } = useAlgorithmRunner()
   overflow: hidden;
   position: relative;
   min-height: 480px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .card-header-bar {
-  padding: var(--spacing-3) var(--spacing-4);
+  padding: 0.65rem var(--spacing-4);
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -110,9 +114,10 @@ const { currentStepIndex, events } = useAlgorithmRunner()
 }
 
 .card-header-title {
-  font-size: var(--text-xs);
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
 }
 
 .canvas-box {
@@ -128,11 +133,11 @@ const { currentStepIndex, events } = useAlgorithmRunner()
 }
 
 .icon-sm {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1100px) {
   .lab-workspace {
     grid-template-columns: 1fr;
   }
@@ -141,7 +146,7 @@ const { currentStepIndex, events } = useAlgorithmRunner()
 @media (max-width: 768px) {
   .algorithm-lab-view {
     padding: var(--spacing-3);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px));
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 16px));
     gap: var(--spacing-3);
   }
 

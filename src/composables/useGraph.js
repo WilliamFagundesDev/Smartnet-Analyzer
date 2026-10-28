@@ -22,6 +22,23 @@ const logs = ref([
   }
 ])
 
+const undoStack = ref([])
+const redoStack = ref([])
+
+function takeSnapshot() {
+  try {
+    const serialized = JSON.stringify(graph.value.toJSON())
+    const len = undoStack.value.length
+    if (len === 0 || undoStack.value[len - 1] !== serialized) {
+      undoStack.value.push(serialized)
+      if (undoStack.value.length > 50) undoStack.value.shift()
+      redoStack.value = []
+    }
+  } catch (err) {
+    console.error('Falha ao registrar snapshot de histórico:', err)
+  }
+}
+
 function loadInitialGraph() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
@@ -65,6 +82,45 @@ export function useGraph() {
     }
   }
 
+  const canUndo = computed(() => undoStack.value.length > 0)
+  const canRedo = computed(() => redoStack.value.length > 0)
+
+  function undo() {
+    if (undoStack.value.length === 0) return false
+    try {
+      const currentSerialized = JSON.stringify(graph.value.toJSON())
+      redoStack.value.push(currentSerialized)
+      const prevSerialized = undoStack.value.pop()
+      const parsed = JSON.parse(prevSerialized)
+      graph.value = GraphModel.fromJSON(parsed)
+      selectedVertexId.value = null
+      selectedEdgeId.value = null
+      notifyGraphModified('Ação desfeita (Undo).')
+      return true
+    } catch (err) {
+      console.error('Falha ao executar undo:', err)
+      return false
+    }
+  }
+
+  function redo() {
+    if (redoStack.value.length === 0) return false
+    try {
+      const currentSerialized = JSON.stringify(graph.value.toJSON())
+      undoStack.value.push(currentSerialized)
+      const nextSerialized = redoStack.value.pop()
+      const parsed = JSON.parse(nextSerialized)
+      graph.value = GraphModel.fromJSON(parsed)
+      selectedVertexId.value = null
+      selectedEdgeId.value = null
+      notifyGraphModified('Ação refeita (Redo).')
+      return true
+    } catch (err) {
+      console.error('Falha ao executar redo:', err)
+      return false
+    }
+  }
+
   // Métricas derivadas em tempo real
   const metrics = computed(() => {
     // Força dependência reativa do graphVersion
@@ -90,9 +146,31 @@ export function useGraph() {
     return validateGraphStructure(graph.value)
   })
 
+  // Geração inteligente de ID sequencial (A, B, C... AA, AB... V1, V2...)
+  function generateNextVertexId() {
+    const existing = new Set(graph.value.vertices.map(v => String(v.id).trim().toUpperCase()))
+    for (let i = 0; i < 26; i++) {
+      const char = String.fromCharCode(65 + i)
+      if (!existing.has(char)) return char
+    }
+    for (let i = 0; i < 26; i++) {
+      for (let j = 0; j < 26; j++) {
+        const candidate = `${String.fromCharCode(65 + i)}${String.fromCharCode(65 + j)}`
+        if (!existing.has(candidate)) return candidate
+      }
+    }
+    let count = 1
+    while (true) {
+      const candidate = `V${count}`
+      if (!existing.has(candidate.toUpperCase())) return candidate
+      count++
+    }
+  }
+
   // Operações em Vértices
   function addVertex(vertexData) {
     try {
+      takeSnapshot()
       const v = graph.value.addVertex(vertexData)
       notifyGraphModified(`Vértice "${v.id}" (${v.label}) adicionado à infraestrutura.`)
       return { success: true, vertex: v }
@@ -104,6 +182,7 @@ export function useGraph() {
 
   function updateVertex(id, updates) {
     try {
+      takeSnapshot()
       const v = graph.value.updateVertex(id, updates)
       notifyGraphModified(`Vértice "${id}" atualizado com sucesso.`)
       return { success: true, vertex: v }
@@ -113,8 +192,41 @@ export function useGraph() {
     }
   }
 
+  function moveVertex(id, x, y, z = 0, shouldRecordHistory = false) {
+    const v = graph.value.getVertex(id)
+    if (!v) return false
+    if (shouldRecordHistory) {
+      takeSnapshot()
+    }
+    v.x = typeof x === 'number' ? Number(x.toFixed(2)) : v.x
+    v.y = typeof y === 'number' ? Number(y.toFixed(2)) : v.y
+    if (z !== undefined && z !== null) {
+      v.z = typeof z === 'number' ? Number(z.toFixed(2)) : v.z
+    }
+    graphVersion.value++
+    saveGraph()
+    return true
+  }
+
+  function duplicateVertex(id) {
+    const v = graph.value.getVertex(id)
+    if (!v) return null
+    const newId = generateNextVertexId()
+    const offset = 12
+    const clone = {
+      id: newId,
+      label: `${v.label || v.id} (Cópia)`,
+      type: v.type || 'standard',
+      x: (v.x || 0) + offset,
+      y: (v.y || 0) + offset,
+      z: v.z || 0
+    }
+    return addVertex(clone)
+  }
+
   function removeVertex(id) {
     try {
+      takeSnapshot()
       const removed = graph.value.removeVertex(id)
       if (removed) {
         if (selectedVertexId.value === id) selectedVertexId.value = null
@@ -131,6 +243,7 @@ export function useGraph() {
   // Operações em Arestas
   function addEdge(edgeData) {
     try {
+      takeSnapshot()
       const e = graph.value.addEdge(edgeData)
       notifyGraphModified(`Conexão (${e.source} ➔ ${e.target}, peso: ${e.weight}) inserida.`)
       return { success: true, edge: e }
@@ -142,6 +255,7 @@ export function useGraph() {
 
   function updateEdge(id, updates) {
     try {
+      takeSnapshot()
       const e = graph.value.updateEdge(id, updates)
       notifyGraphModified(`Conexão "${id}" atualizada com sucesso.`)
       return { success: true, edge: e }
@@ -153,6 +267,7 @@ export function useGraph() {
 
   function removeEdge(id) {
     try {
+      takeSnapshot()
       const removed = graph.value.removeEdge(id)
       if (removed) {
         if (selectedEdgeId.value === id) selectedEdgeId.value = null
@@ -168,21 +283,25 @@ export function useGraph() {
 
   // Configurações do Grafo
   function setDirected(directed) {
+    takeSnapshot()
     graph.value.setDirected(directed)
     notifyGraphModified(`Modo do grafo alterado para: ${directed ? 'DIRECIONADO' : 'NÃO-DIRECIONADO'}.`)
   }
 
   function setWeighted(weighted) {
+    takeSnapshot()
     graph.value.setWeighted(weighted)
     notifyGraphModified(`Ponderação do grafo alterada para: ${weighted ? 'PONDERADO' : 'NÃO-PONDERADO'}.`)
   }
 
   function setName(name) {
+    takeSnapshot()
     graph.value.setName(name)
     notifyGraphModified(`Nome do grafo alterado para: "${name}".`)
   }
 
   function clearGraph() {
+    takeSnapshot()
     graph.value.clear()
     selectedVertexId.value = null
     selectedEdgeId.value = null
@@ -195,6 +314,7 @@ export function useGraph() {
       addLog('error', `Predefinição "${presetId}" não encontrada.`)
       return false
     }
+    takeSnapshot()
     graph.value = GraphModel.fromJSON(preset)
     selectedVertexId.value = null
     selectedEdgeId.value = null
@@ -210,6 +330,7 @@ export function useGraph() {
         addLog('error', `Arquivo JSON inválido: ${val.error}`)
         return { success: false, error: val.error }
       }
+      takeSnapshot()
       graph.value = GraphModel.fromJSON(data)
       selectedVertexId.value = null
       selectedEdgeId.value = null
@@ -245,6 +366,14 @@ export function useGraph() {
     selectedVertexId,
     selectedEdgeId,
     logs,
+    takeSnapshot,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    generateNextVertexId,
+    moveVertex,
+    duplicateVertex,
     addLog,
     addVertex,
     updateVertex,

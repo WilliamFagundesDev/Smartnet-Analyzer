@@ -62,8 +62,8 @@ const primaryNav = [
     height: calc(56px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--bg-surface);
-    border-top: 1px solid var(--border-light);
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+    border-top: 1px solid var(--border-subtle);
+    box-shadow: 0 -2px 10px rgba(16, 24, 40, 0.05);
     z-index: 50;
     align-items: center;
     justify-content: space-around;
@@ -78,7 +78,7 @@ const primaryNav = [
     gap: 3px;
     height: 100%;
     color: var(--text-muted);
-    font-size: 0.65rem;
+    font-size: 0.68rem;
     font-weight: 500;
     text-decoration: none;
     background: none;
@@ -99,8 +99,8 @@ const primaryNav = [
   }
 
   .mobile-icon {
-    width: 18px;
-    height: 18px;
+    width: 17px;
+    height: 17px;
   }
 
   .mobile-nav-item.is-active {
