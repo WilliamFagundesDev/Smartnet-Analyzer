@@ -1,5 +1,5 @@
 <template>
-  <div class="graph-canvas-container" ref="containerRef">
+  <div class="graph-canvas-container" :class="{ 'is-compact': compact }" ref="containerRef">
     <!-- Toolbar Flutuante em Cápsula Minimalista -->
     <div class="canvas-glass-toolbar">
       <div class="toolbar-mode-switch">
@@ -9,6 +9,7 @@
           @click="setViewMode('3D')"
           title="Modo Espacial 3D (WebGL)"
           aria-label="Ativar visualização 3D"
+          type="button"
         >
           <Box class="icon-xs" />
           <span>3D</span>
@@ -19,6 +20,7 @@
           @click="setViewMode('2D')"
           title="Modo Plano 2D (Canvas)"
           aria-label="Ativar visualização 2D"
+          type="button"
         >
           <Layers class="icon-xs" />
           <span>2D</span>
@@ -33,16 +35,19 @@
           @click="fitCamera"
           title="Enquadrar e centralizar grafo"
           aria-label="Centralizar câmera"
+          type="button"
         >
           <Maximize2 class="icon-xs" />
-          <span class="btn-text">Centralizar</span>
+          <span v-if="!compact" class="btn-text">Centralizar</span>
         </button>
 
         <button
+          v-if="!compact"
           class="action-icon-btn"
           @click="reorganizeLayout"
           title="Rearranjar nós via simulação de física 3D"
           aria-label="Rearranjar layout"
+          type="button"
         >
           <Sparkles class="icon-xs" />
           <span class="btn-text">Organizar</span>
@@ -55,6 +60,7 @@
           @click="toggleAutoRotate"
           title="Alternar rotação contínua da câmera"
           aria-label="Alternar rotação contínua"
+          type="button"
         >
           <RotateCw class="icon-xs" />
         </button>
@@ -70,7 +76,38 @@
 
     <!-- Viewport Fallback 2D Canvas -->
     <div v-show="viewMode === '2D' || webglError" class="fallback-2d-viewport">
-      <canvas ref="canvas2DRef" class="canvas-2d"></canvas>
+      <canvas
+        ref="canvas2DRef"
+        class="canvas-2d"
+        @click="handle2DCanvasClick"
+      ></canvas>
+    </div>
+
+    <!-- Pílula Neutra de Inspeção da Aresta Selecionada (Sem alterar a cor da aresta) -->
+    <div v-if="selectedEdgeInfo" class="selected-edge-floating-pill">
+      <span class="edge-bracket-mark font-mono">[&middot;]</span>
+      <span class="edge-id-pair font-mono">
+        {{ selectedEdgeInfo.source }} {{ graph.directed ? '➔' : '↔' }} {{ selectedEdgeInfo.target }}
+      </span>
+      <span v-if="graph.weighted" class="edge-weight-meta font-mono">
+        p:{{ selectedEdgeInfo.weight }}
+      </span>
+      <span
+        v-if="selectedEdgeStatusMeta"
+        class="edge-status-chip"
+        :class="selectedEdgeStatusMeta.className"
+      >
+        {{ selectedEdgeStatusMeta.label }}
+      </span>
+      <button
+        type="button"
+        class="edge-deselect-btn"
+        @click="selectEdge(null)"
+        title="Desmarcar aresta selecionada"
+        aria-label="Desmarcar aresta"
+      >
+        <X class="icon-2xs" />
+      </button>
     </div>
 
     <!-- Legenda Semântica Flutuante Discreta (Expansível) -->
@@ -79,9 +116,10 @@
         class="legend-toggle-pill"
         @click="isLegendExpanded = !isLegendExpanded"
         title="Alternar legenda de cores semânticas"
+        type="button"
       >
         <span class="legend-indicator-dot"></span>
-        <span class="legend-btn-label">Legenda de Cores</span>
+        <span class="legend-btn-label">{{ compact ? 'Legenda' : 'Legenda de Cores' }}</span>
         <ChevronUp v-if="!isLegendExpanded" class="icon-xs" />
         <ChevronDown v-else class="icon-xs" />
       </button>
@@ -111,6 +149,10 @@
           <span class="dot-sample dot-slate"></span>
           <span class="item-name">Não Visitado</span>
         </div>
+        <div class="legend-item legend-item-divider" title="Anéis/colchetes neutros indicam seleção preservando a cor original">
+          <span class="bracket-sample font-mono">[ ]</span>
+          <span class="item-name">Aresta Selecionada</span>
+        </div>
       </div>
     </div>
 
@@ -123,7 +165,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import {
   Box,
   Layers,
@@ -132,7 +174,8 @@ import {
   RotateCw,
   ChevronUp,
   ChevronDown,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from 'lucide-vue-next'
 import { useGraph } from '../../composables/useGraph.js'
 import { useAlgorithmRunner } from '../../composables/useAlgorithmRunner.js'
@@ -140,9 +183,61 @@ import { useTheme } from '../../composables/useTheme.js'
 import { ThreeSceneManager } from '../../visualization/threeScene.js'
 import { applyForceLayout3D } from '../../visualization/graphLayout.js'
 
-const { graph, graphVersion, selectedVertexId, selectedEdgeId, selectVertex, selectEdge, addLog } = useGraph()
+const props = defineProps({
+  highlights: {
+    type: Object,
+    default: null
+  },
+  compact: {
+    type: Boolean,
+    default: false
+  },
+  externalCameraState: {
+    type: Object,
+    default: null
+  }
+})
+
+const emit = defineEmits(['camera-change'])
+
+const {
+  graph,
+  graphVersion,
+  selectedVertexId,
+  selectedEdgeId,
+  selectVertex,
+  selectEdge,
+  addLog
+} = useGraph()
 const { visualHighlights } = useAlgorithmRunner()
 const { theme } = useTheme()
+
+const activeHighlights = computed(() => props.highlights || visualHighlights.value || { vertexStatus: {}, edgeStatus: {} })
+
+const selectedEdgeInfo = computed(() => {
+  if (!selectedEdgeId.value) return null
+  return graph.value.getEdge(selectedEdgeId.value) || null
+})
+
+const selectedEdgeStatusMeta = computed(() => {
+  const edge = selectedEdgeInfo.value
+  if (!edge) return null
+  const { edgeStatus = {} } = activeHighlights.value
+  const status =
+    edgeStatus[edge.id] ||
+    edgeStatus[`${edge.source}->${edge.target}`] ||
+    (!graph.value.directed ? edgeStatus[`${edge.target}->${edge.source}`] : null) ||
+    null
+
+  if (status === 'path') return { label: 'Menor Caminho', className: 'status-path' }
+  if (status === 'tree') return { label: 'Árvore / AGM', className: 'status-tree' }
+  if (status === 'cycle') return { label: 'Ciclo Rejeitado', className: 'status-cycle' }
+  if (status === 'examining') return { label: 'Examinando', className: 'status-examining' }
+  if (Object.keys(edgeStatus).length > 0) {
+    return { label: 'Não usada', className: 'status-unused' }
+  }
+  return null
+})
 
 const containerRef = ref(null)
 const viewportRef = ref(null)
@@ -154,16 +249,29 @@ const isAutoRotating = ref(false)
 const isLegendExpanded = ref(false)
 
 let sceneManager = null
+let containerResizeObserver = null
 
 onMounted(() => {
   initThreeScene()
   init2DCanvas()
+  if (containerRef.value && typeof ResizeObserver !== 'undefined') {
+    containerResizeObserver = new ResizeObserver(() => {
+      if (viewMode.value === '2D' || webglError.value) {
+        render2D()
+      }
+    })
+    containerResizeObserver.observe(containerRef.value)
+  }
 })
 
 onBeforeUnmount(() => {
   if (sceneManager) {
     sceneManager.destroy()
     sceneManager = null
+  }
+  if (containerResizeObserver) {
+    containerResizeObserver.disconnect()
+    containerResizeObserver = null
   }
   window.removeEventListener('resize', render2D)
 })
@@ -174,8 +282,18 @@ function initThreeScene() {
     sceneManager = new ThreeSceneManager(viewportRef.value, {
       theme: theme.value,
       onSelectVertex: (id) => selectVertex(id),
-      onSelectEdge: (id) => selectEdge(id)
+      onSelectEdge: (id) => selectEdge(id),
+      onClearSelection: () => {
+        selectVertex(null)
+        selectEdge(null)
+      },
+      onCameraChange: (camState) => {
+        emit('camera-change', camState)
+      }
     })
+    if (props.externalCameraState) {
+      sceneManager.setCameraState(props.externalCameraState)
+    }
     updateScene()
   } catch (err) {
     console.error('Falha ao inicializar Three.js / WebGL:', err)
@@ -183,6 +301,15 @@ function initThreeScene() {
     viewMode.value = '2D'
   }
 }
+
+watch(
+  () => props.externalCameraState,
+  (newState) => {
+    if (newState && sceneManager && viewMode.value === '3D') {
+      sceneManager.setCameraState(newState)
+    }
+  }
+)
 
 watch(theme, (newTheme) => {
   if (sceneManager) {
@@ -198,7 +325,7 @@ function updateScene() {
   if (sceneManager && viewMode.value === '3D') {
     sceneManager.updateGraph(
       graph.value,
-      visualHighlights.value,
+      activeHighlights.value,
       selectedVertexId.value,
       selectedEdgeId.value
     )
@@ -208,7 +335,7 @@ function updateScene() {
   }
 }
 
-watch([graphVersion, visualHighlights, selectedVertexId, selectedEdgeId], () => {
+watch([graphVersion, activeHighlights, selectedVertexId, selectedEdgeId], () => {
   updateScene()
 })
 
@@ -241,10 +368,70 @@ function reorganizeLayout() {
   }
 }
 
+defineExpose({
+  fitCamera,
+  reorganizeLayout,
+  setViewMode
+})
+
 // Renderizador 2D Canvas de Alta Precisão
 function init2DCanvas() {
   window.addEventListener('resize', render2D)
   render2D()
+}
+
+function distToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1
+  const dy = y2 - y1
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return Math.hypot(px - x1, py - y1)
+  let t = ((px - x1) * dx + (py - y1) * dy) / lenSq
+  t = Math.max(0, Math.min(1, t))
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+}
+
+function handle2DCanvasClick(event) {
+  const canvas = canvas2DRef.value
+  if (!canvas || !containerRef.value) return
+
+  const rect = canvas.getBoundingClientRect()
+  const mx = event.clientX - rect.left
+  const my = event.clientY - rect.top
+
+  const width = containerRef.value.clientWidth || 800
+  const height = containerRef.value.clientHeight || 500
+  const cx = width / 2
+  const cy = height / 2
+  const scale = Math.min(width, height) / 110
+
+  // 1. Verifica clique em vértice
+  for (const v of graph.value.vertices) {
+    const vx = cx + (v.x || 0) * scale
+    const vy = cy + (v.y || 0) * scale
+    if (Math.hypot(mx - vx, my - vy) <= 14) {
+      selectVertex(selectedVertexId.value === v.id ? null : v.id)
+      return
+    }
+  }
+
+  // 2. Verifica clique em aresta
+  for (const e of graph.value.edges) {
+    const v1 = graph.value.getVertex(e.source)
+    const v2 = graph.value.getVertex(e.target)
+    if (!v1 || !v2) continue
+    const x1 = cx + (v1.x || 0) * scale
+    const y1 = cy + (v1.y || 0) * scale
+    const x2 = cx + (v2.x || 0) * scale
+    const y2 = cy + (v2.y || 0) * scale
+    if (distToSegment(mx, my, x1, y1, x2, y2) <= 9) {
+      selectEdge(selectedEdgeId.value === e.id ? null : e.id)
+      return
+    }
+  }
+
+  // 3. Clique no fundo vazio limpa seleção
+  if (selectedEdgeId.value) selectEdge(null)
+  if (selectedVertexId.value) selectVertex(null)
 }
 
 function render2D() {
@@ -253,6 +440,7 @@ function render2D() {
 
   const width = containerRef.value.clientWidth || 800
   const height = containerRef.value.clientHeight || 500
+  if (!width || !height) return
   const dpr = window.devicePixelRatio || 1
 
   canvas.width = width * dpr
@@ -264,14 +452,15 @@ function render2D() {
   ctx.scale(dpr, dpr)
 
   const isLight = theme.value === 'light'
-  ctx.fillStyle = isLight ? '#f8fafc' : '#090d16'
+  const bgFill = isLight ? '#f8fafc' : '#090d16'
+  ctx.fillStyle = bgFill
   ctx.fillRect(0, 0, width, height)
 
   const cx = width / 2
   const cy = height / 2
   const scale = Math.min(width, height) / 110
 
-  const { vertexStatus = {}, edgeStatus = {} } = visualHighlights.value
+  const { vertexStatus = {}, edgeStatus = {} } = activeHighlights.value
 
   // Desenho das Arestas 2D
   graph.value.edges.forEach(e => {
@@ -284,25 +473,64 @@ function render2D() {
     const x2 = cx + (v2.x || 0) * scale
     const y2 = cy + (v2.y || 0) * scale
 
-    const status = edgeStatus[e.id] || edgeStatus[`${e.source}->${e.target}`]
+    const isSelected = selectedEdgeId.value === e.id
+    const status =
+      edgeStatus[e.id] ||
+      edgeStatus[`${e.source}->${e.target}`] ||
+      (!graph.value.directed ? edgeStatus[`${e.target}->${e.source}`] : null)
+
     const defaultColor = isLight ? '#94a3b8' : '#475569'
+    const semanticEdgeColor =
+      status === 'tree'
+        ? '#10b981'
+        : status === 'cycle'
+          ? '#ef4444'
+          : status === 'path'
+            ? '#0ea5e9'
+            : status === 'examining'
+              ? '#f59e0b'
+              : defaultColor
 
-    ctx.lineWidth = status ? 3.5 : 1.5
-    ctx.strokeStyle = status === 'tree' ? '#10b981' : status === 'cycle' ? '#ef4444' : status === 'path' ? '#0ea5e9' : status === 'examining' ? '#f59e0b' : defaultColor
+    const baseLineWidth = status ? 3.5 : 1.75
 
+    // Moldura tracejada neutra para aresta selecionada (SEM alterar a cor semântica da aresta)
+    if (isSelected) {
+      ctx.save()
+      ctx.lineCap = 'round'
+      ctx.setLineDash([6, 4])
+      ctx.lineWidth = baseLineWidth + 7.5
+      ctx.strokeStyle = isLight ? 'rgba(15, 23, 42, 0.55)' : 'rgba(248, 250, 252, 0.65)'
+      ctx.beginPath()
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(x2, y2)
+      ctx.stroke()
+
+      ctx.setLineDash([])
+      ctx.lineWidth = baseLineWidth + 3.5
+      ctx.strokeStyle = bgFill
+      ctx.beginPath()
+      ctx.moveTo(x1, y1)
+      ctx.lineTo(x2, y2)
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    // Linha principal da aresta na sua cor original exata
+    ctx.lineWidth = baseLineWidth
+    ctx.strokeStyle = semanticEdgeColor
     ctx.beginPath()
     ctx.moveTo(x1, y1)
     ctx.lineTo(x2, y2)
     ctx.stroke()
 
-    // Seta direcionada em 2D
+    // Seta direcionada em 2D (mantém cor semântica)
     if (graph.value.directed) {
       const angle = Math.atan2(y2 - y1, x2 - x1)
       const arrowLen = 10
       const arrowX = x1 + (x2 - x1) * 0.72
       const arrowY = y1 + (y2 - y1) * 0.72
 
-      ctx.fillStyle = ctx.strokeStyle
+      ctx.fillStyle = semanticEdgeColor
       ctx.beginPath()
       ctx.moveTo(arrowX, arrowY)
       ctx.lineTo(
@@ -317,20 +545,50 @@ function render2D() {
       ctx.fill()
     }
 
-    // Badge de Peso
+    // Badge de Peso (com colchetes neutros externos se selecionada)
+    const mx = (x1 + x2) / 2
+    const my = (y1 + y2) / 2
     if (graph.value.weighted) {
-      const mx = (x1 + x2) / 2
-      const my = (y1 + y2) / 2
+      if (isSelected) {
+        ctx.save()
+        ctx.strokeStyle = isLight ? '#0f172a' : '#f8fafc'
+        ctx.lineWidth = 1.6
+        ctx.setLineDash([4, 3])
+        ctx.strokeRect(mx - 17, my - 13, 34, 26)
+        ctx.restore()
+      }
+
       ctx.fillStyle = isLight ? '#ffffff' : '#141c2e'
       ctx.fillRect(mx - 13, my - 9, 26, 18)
       ctx.strokeStyle = isLight ? '#e7eaf2' : 'rgba(255, 255, 255, 0.15)'
+      ctx.lineWidth = 1
       ctx.strokeRect(mx - 13, my - 9, 26, 18)
 
-      ctx.fillStyle = status === 'tree' ? '#10b981' : status === 'cycle' ? '#ef4444' : status === 'path' ? '#0ea5e9' : (isLight ? '#172033' : '#f8fafc')
+      ctx.fillStyle =
+        status === 'tree'
+          ? '#10b981'
+          : status === 'cycle'
+            ? '#ef4444'
+            : status === 'path'
+              ? '#0ea5e9'
+              : status === 'examining'
+                ? '#f59e0b'
+                : isLight
+                  ? '#172033'
+                  : '#f8fafc'
       ctx.font = 'bold 10px JetBrains Mono, monospace'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(String(e.weight), mx, my)
+    } else if (isSelected) {
+      ctx.save()
+      ctx.strokeStyle = isLight ? '#0f172a' : '#f8fafc'
+      ctx.lineWidth = 1.6
+      ctx.setLineDash([3, 2])
+      ctx.beginPath()
+      ctx.arc(mx, my, 8, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
     }
   })
 
@@ -345,11 +603,25 @@ function render2D() {
     ctx.arc(vx, vy, isSelected ? 12 : 9, 0, Math.PI * 2)
 
     const defaultNodeColor = isLight ? '#172033' : '#94a3b8'
-    ctx.fillStyle = isSelected ? '#4f63f6' : status === 'current' ? '#f59e0b' : status === 'visited' ? '#10b981' : status === 'queued' ? '#8b5cf6' : status === 'path' ? '#0ea5e9' : defaultNodeColor
+    ctx.fillStyle = isSelected
+      ? '#4f63f6'
+      : status === 'current'
+        ? '#f59e0b'
+        : status === 'visited' || status === 'settled'
+          ? '#10b981'
+          : status === 'queued'
+            ? '#8b5cf6'
+            : status === 'path'
+              ? '#0ea5e9'
+              : status === 'source'
+                ? '#4f63f6'
+                : status === 'target'
+                  ? '#ef4444'
+                  : defaultNodeColor
     ctx.fill()
 
     ctx.lineWidth = 2
-    ctx.strokeStyle = isSelected ? '#ffffff' : (isLight ? '#cbd5e1' : '#1e293b')
+    ctx.strokeStyle = isSelected ? '#ffffff' : isLight ? '#cbd5e1' : '#1e293b'
     ctx.stroke()
 
     // Rótulo
@@ -382,6 +654,7 @@ function render2D() {
   width: 100%;
   height: 100%;
   display: block;
+  cursor: pointer;
 }
 
 /* Toolbar Flutuante em Cápsula */
@@ -398,6 +671,13 @@ function render2D() {
   padding: 0.25rem 0.5rem;
   box-shadow: var(--shadow-sm);
   z-index: 20;
+}
+
+.is-compact .canvas-glass-toolbar {
+  top: var(--spacing-2);
+  left: var(--spacing-2);
+  padding: 0.18rem 0.35rem;
+  gap: 0.3rem;
 }
 
 .toolbar-mode-switch {
@@ -418,6 +698,11 @@ function render2D() {
   border-radius: var(--radius-full);
   color: var(--text-secondary);
   transition: all var(--transition-fast);
+}
+
+.is-compact .mode-btn {
+  padding: 0.18rem 0.45rem;
+  font-size: 0.68rem;
 }
 
 .mode-btn:hover {
@@ -454,6 +739,10 @@ function render2D() {
   transition: all var(--transition-fast);
 }
 
+.is-compact .action-icon-btn {
+  padding: 0.25rem 0.4rem;
+}
+
 .action-icon-btn:hover {
   color: var(--color-primary);
   background: var(--color-primary-bg);
@@ -462,6 +751,96 @@ function render2D() {
 .action-icon-btn.active {
   color: var(--color-primary);
   background: var(--color-primary-bg);
+}
+
+/* Pílula Flutuante Neutra de Aresta Selecionada */
+.selected-edge-floating-pill {
+  position: absolute;
+  bottom: var(--spacing-3);
+  left: var(--spacing-3);
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-surface);
+  border: 1.5px dashed var(--text-secondary);
+  border-radius: var(--radius-full);
+  padding: 0.28rem 0.55rem 0.28rem 0.65rem;
+  font-size: 0.7rem;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+  animation: fadeIn var(--transition-fast) ease-out;
+}
+
+.is-compact .selected-edge-floating-pill {
+  bottom: var(--spacing-2);
+  left: var(--spacing-2);
+  padding: 0.2rem 0.45rem 0.2rem 0.55rem;
+  font-size: 0.66rem;
+}
+
+.edge-bracket-mark {
+  font-weight: 800;
+  color: var(--text-secondary);
+}
+
+.edge-id-pair {
+  font-weight: 700;
+}
+
+.edge-weight-meta {
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.edge-status-chip {
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 0.08rem 0.4rem;
+  border-radius: var(--radius-full);
+}
+
+.status-tree {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.status-path {
+  background: var(--color-path-bg);
+  color: var(--color-path);
+}
+
+.status-cycle {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.status-examining {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.status-unused {
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+.edge-deselect-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edge-deselect-btn:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
 }
 
 /* Legenda Flutuante Discreta */
@@ -473,6 +852,11 @@ function render2D() {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+}
+
+.is-compact .floating-legend-capsule {
+  bottom: var(--spacing-2);
+  right: var(--spacing-2);
 }
 
 .legend-toggle-pill {
@@ -488,6 +872,11 @@ function render2D() {
   color: var(--text-secondary);
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-fast);
+}
+
+.is-compact .legend-toggle-pill {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.68rem;
 }
 
 .legend-toggle-pill:hover {
@@ -512,7 +901,7 @@ function render2D() {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  min-width: 180px;
+  min-width: 185px;
   animation: fadeIn var(--transition-fast) ease-out;
 }
 
@@ -522,6 +911,21 @@ function render2D() {
   gap: 0.5rem;
   font-size: 0.72rem;
   color: var(--text-secondary);
+}
+
+.legend-item-divider {
+  padding-top: 0.35rem;
+  margin-top: 0.1rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.bracket-sample {
+  font-size: 0.64rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .dot-sample {
@@ -554,6 +958,7 @@ function render2D() {
   z-index: 25;
 }
 
+.icon-2xs { width: 11px; height: 11px; }
 .icon-xs { width: 13px; height: 13px; }
 
 @media (max-width: 600px) {

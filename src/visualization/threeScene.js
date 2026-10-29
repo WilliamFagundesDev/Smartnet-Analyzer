@@ -2,7 +2,8 @@ import * as THREE from 'three'
 
 /**
  * Motor de Renderização e Visualização Espacial 3D com Three.js
- * Arquitetura de alto padrão, materiais PBR, feedback visual por raio e iluminação refinada.
+ * Arquitetura de alto padrão, materiais PBR, feedback visual por raio,
+ * sincronização multi-câmera e seleção geométrica de arestas sem alteração de cor.
  */
 export class ThreeSceneManager {
   /**
@@ -13,6 +14,8 @@ export class ThreeSceneManager {
     this.container = container
     this.onSelectVertex = options.onSelectVertex || (() => {})
     this.onSelectEdge = options.onSelectEdge || (() => {})
+    this.onClearSelection = options.onClearSelection || null
+    this.onCameraChange = options.onCameraChange || null
     this.theme = options.theme || 'light'
 
     this.scene = null
@@ -20,7 +23,13 @@ export class ThreeSceneManager {
     this.renderer = null
     this.gridHelper = null
     this.animationFrameId = null
+    this.resizeObserver = null
     this.autoRotate = false
+    this._isApplyingExternalCamera = false
+
+    // Estado atual de seleção para toggle seguro
+    this.currentSelectedVertexId = null
+    this.currentSelectedEdgeId = null
 
     // Grupos de Objetos 3D
     this.nodesGroup = new THREE.Group()
@@ -81,7 +90,7 @@ export class ThreeSceneManager {
 
     // 2. Câmera
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000)
-    this.updateCameraPosition()
+    this.updateCameraPosition(false)
 
     // 3. Renderizador WebGL de Precisão
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
@@ -110,8 +119,14 @@ export class ThreeSceneManager {
     this.scene.add(this.labelsGroup)
     this.scene.add(this.edgeLabelsGroup)
 
-    // 5. Event Listeners
+    // 5. Event Listeners & ResizeObserver para grades dinâmicas (1, 2, 3 ou 4 viewports)
     this._bindEvents()
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.onWindowResize()
+      })
+      this.resizeObserver.observe(this.container)
+    }
 
     // 6. Loop de Renderização
     this.animate()
@@ -174,7 +189,7 @@ export class ThreeSceneManager {
       this.spherical.theta -= deltaX * 0.009
       this.spherical.phi -= deltaY * 0.009
       this.spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.spherical.phi))
-      this.updateCameraPosition()
+      this.updateCameraPosition(true)
 
       this.previousTouchPosition = { x: touch.clientX, y: touch.clientY }
     } else if (e.touches.length === 2) {
@@ -186,7 +201,7 @@ export class ThreeSceneManager {
       if (this.initialPinchDistance) {
         const factor = this.initialPinchDistance / currentDistance
         this.spherical.radius = Math.max(15, Math.min(250, this.spherical.radius * factor))
-        this.updateCameraPosition()
+        this.updateCameraPosition(true)
       }
       this.initialPinchDistance = currentDistance
     }
@@ -223,7 +238,7 @@ export class ThreeSceneManager {
       this.spherical.theta -= deltaX * 0.008
       this.spherical.phi -= deltaY * 0.008
       this.spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.spherical.phi))
-      this.updateCameraPosition()
+      this.updateCameraPosition(true)
     } else if (this.isPanning) {
       const panSpeed = 0.08
       const right = new THREE.Vector3()
@@ -233,7 +248,7 @@ export class ThreeSceneManager {
 
       this.cameraTarget.addScaledVector(right, -deltaX * panSpeed)
       this.cameraTarget.y += deltaY * panSpeed
-      this.updateCameraPosition()
+      this.updateCameraPosition(true)
     } else {
       // Hover feedback quando o mouse apenas desliza
       this._handleHoverRaycast(e)
@@ -246,6 +261,8 @@ export class ThreeSceneManager {
     if (!this.renderer || !this.camera) return
     const rect = this.renderer.domElement.getBoundingClientRect()
     if (
+      rect.width === 0 ||
+      rect.height === 0 ||
       event.clientX < rect.left ||
       event.clientX > rect.right ||
       event.clientY < rect.top ||
@@ -280,17 +297,53 @@ export class ThreeSceneManager {
     e.preventDefault()
     const zoomFactor = e.deltaY > 0 ? 1.08 : 0.92
     this.spherical.radius = Math.max(15, Math.min(250, this.spherical.radius * zoomFactor))
-    this.updateCameraPosition()
+    this.updateCameraPosition(true)
   }
 
-  updateCameraPosition() {
+  updateCameraPosition(shouldEmit = false) {
+    if (!this.camera) return
     const offset = new THREE.Vector3().setFromSpherical(this.spherical)
     this.camera.position.copy(this.cameraTarget).add(offset)
     this.camera.lookAt(this.cameraTarget)
+
+    if (shouldEmit && !this._isApplyingExternalCamera && this.onCameraChange) {
+      this.onCameraChange(this.getCameraState())
+    }
+  }
+
+  getCameraState() {
+    return {
+      radius: this.spherical.radius,
+      phi: this.spherical.phi,
+      theta: this.spherical.theta,
+      targetX: this.cameraTarget.x,
+      targetY: this.cameraTarget.y,
+      targetZ: this.cameraTarget.z
+    }
+  }
+
+  setCameraState(state) {
+    if (!state || !this.camera) return
+    this._isApplyingExternalCamera = true
+    if (typeof state.radius === 'number') this.spherical.radius = state.radius
+    if (typeof state.phi === 'number') this.spherical.phi = state.phi
+    if (typeof state.theta === 'number') this.spherical.theta = state.theta
+    if (
+      typeof state.targetX === 'number' &&
+      typeof state.targetY === 'number' &&
+      typeof state.targetZ === 'number'
+    ) {
+      this.cameraTarget.set(state.targetX, state.targetY, state.targetZ)
+    }
+    this.updateCameraPosition(false)
+    this._isApplyingExternalCamera = false
   }
 
   performRaycast(event) {
+    if (!this.renderer || !this.camera) return
     const rect = this.renderer.domElement.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+
     this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
 
@@ -304,7 +357,8 @@ export class ThreeSceneManager {
         currentObj = currentObj.parent
       }
       if (currentObj && currentObj.userData?.vertexId) {
-        this.onSelectVertex(currentObj.userData.vertexId)
+        const clickedVertexId = currentObj.userData.vertexId
+        this.onSelectVertex(this.currentSelectedVertexId === clickedVertexId ? null : clickedVertexId)
         return
       }
     }
@@ -317,7 +371,19 @@ export class ThreeSceneManager {
         currentEdgeObj = currentEdgeObj.parent
       }
       if (currentEdgeObj && currentEdgeObj.userData?.edgeId) {
-        this.onSelectEdge(currentEdgeObj.userData.edgeId)
+        const clickedEdgeId = currentEdgeObj.userData.edgeId
+        this.onSelectEdge(this.currentSelectedEdgeId === clickedEdgeId ? null : clickedEdgeId)
+        return
+      }
+    }
+
+    // 3. Clique no fundo vazio limpa seleção ativa
+    if (this.currentSelectedEdgeId || this.currentSelectedVertexId) {
+      if (this.onClearSelection) {
+        this.onClearSelection()
+      } else {
+        if (this.currentSelectedEdgeId) this.onSelectEdge(null)
+        if (this.currentSelectedVertexId) this.onSelectVertex(null)
       }
     }
   }
@@ -326,6 +392,7 @@ export class ThreeSceneManager {
     if (!this.container || !this.renderer || !this.camera) return
     const width = this.container.clientWidth
     const height = this.container.clientHeight
+    if (!width || !height) return
     this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(width, height)
@@ -339,9 +406,13 @@ export class ThreeSceneManager {
   updateGraph(graph, highlights = {}, selectedVertexId = null, selectedEdgeId = null) {
     if (!graph || !this.scene) return
 
-    const { vertexStatus = {}, edgeStatus = {} } = highlights
+    this.currentSelectedVertexId = selectedVertexId
+    this.currentSelectedEdgeId = selectedEdgeId
 
-    // Limpa objetos anteriores
+    const { vertexStatus = {}, edgeStatus = {} } = highlights
+    const isLight = this.theme === 'light'
+
+    // Limpa objetos anteriores liberando memória GPU
     this._clearGroup(this.nodesGroup)
     this._clearGroup(this.edgesGroup)
     this._clearGroup(this.labelsGroup)
@@ -378,19 +449,19 @@ export class ThreeSceneManager {
       const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat)
       nodeObj.add(sphereMesh)
 
-      // Halo / Anel luminoso para o nó atual sendo processado
+      // Halo / Anel luminoso para o nó atual sendo processado ou selecionado
       if (status === 'current' || isSelected) {
         const ringGeo = new THREE.RingGeometry(2.8, 3.4, 32)
         const ringMat = new THREE.MeshBasicMaterial({
           color: isSelected ? 0x4f63f6 : 0xf59e0b,
           side: THREE.DoubleSide,
           transparent: true,
-          opacity: 0.8
+          opacity: 0.85
         })
         const ringMesh = new THREE.Mesh(ringGeo, ringMat)
         ringMesh.position.copy(pos)
         ringMesh.lookAt(this.camera.position)
-        ringMesh.userData = { isHalo: true }
+        ringMesh.userData = { isBillboardHalo: true }
         this.haloGroup.add(ringMesh)
       }
 
@@ -410,18 +481,30 @@ export class ThreeSceneManager {
       if (!p1 || !p2) return
 
       const isSelected = selectedEdgeId === edge.id
-      const status = edgeStatus[edge.id] || edgeStatus[`${edge.source}->${edge.target}`] || null
-      const edgeColor = this._getEdgeColor(status, isSelected)
+      const status =
+        edgeStatus[edge.id] ||
+        edgeStatus[`${edge.source}->${edge.target}`] ||
+        (!graph.directed ? edgeStatus[`${edge.target}->${edge.source}`] : null) ||
+        null
+
+      // IMPORTANTE: A cor da aresta NUNCA muda ao ser selecionada, preservando 100% da semântica do algoritmo
+      const edgeColor = this._getEdgeColor(status)
 
       const edgeObj = new THREE.Group()
       edgeObj.userData = { edgeId: edge.id, source: edge.source, target: edge.target }
 
       const distance = p1.distanceTo(p2)
       const midPoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5)
+      const direction = new THREE.Vector3().subVectors(p2, p1).normalize()
 
-      // Cilindro de conexão
-      const isThick = status === 'tree' || status === 'path' || isSelected
-      const radius = isThick ? 0.42 : 0.2
+      const cylinderQuat = new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        direction
+      )
+
+      // Cilindro principal da conexão (espessura e cor estritamente semânticas)
+      const isThick = status === 'tree' || status === 'path' || status === 'examining'
+      const radius = isThick ? 0.42 : 0.22
       const cylinderGeo = new THREE.CylinderGeometry(radius, radius, distance, 14)
       const cylinderMat = new THREE.MeshStandardMaterial({
         color: edgeColor.base,
@@ -430,19 +513,68 @@ export class ThreeSceneManager {
         roughness: 0.32,
         metalness: 0.5,
         transparent: true,
-        opacity: status === 'cycle' ? 0.65 : 0.95
+        opacity: status === 'cycle' ? 0.68 : 0.95
       })
       const cylinderMesh = new THREE.Mesh(cylinderGeo, cylinderMat)
-
-      // Posiciona e orienta o cilindro entre p1 e p2
       cylinderMesh.position.copy(midPoint)
-      cylinderMesh.quaternion.setFromUnitVectors(
-        new THREE.Vector3(0, 1, 0),
-        new THREE.Vector3().subVectors(p2, p1).normalize()
-      )
+      cylinderMesh.quaternion.copy(cylinderQuat)
       edgeObj.add(cylinderMesh)
 
-      // Se direcionado: Adiciona Seta de Direção
+      // Cilindro invisível expandido para facilitar o clique (hitbox de seleção 3D)
+      const hitCylinderGeo = new THREE.CylinderGeometry(1.25, 1.25, Math.max(0.5, distance - 4.5), 8)
+      const hitCylinderMat = new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0,
+        depthWrite: false
+      })
+      const hitCylinderMesh = new THREE.Mesh(hitCylinderGeo, hitCylinderMat)
+      hitCylinderMesh.position.copy(midPoint)
+      hitCylinderMesh.quaternion.copy(cylinderQuat)
+      edgeObj.add(hitCylinderMesh)
+
+      // Indicador Geométrico de Seleção (SEM alterar a cor da aresta!)
+      if (isSelected) {
+        const sheathLength = Math.max(0.6, distance - 5.2)
+        const neutralHex = isLight ? 0x0f172a : 0xf8fafc
+
+        // 1. Cápsula translúcida neutra envolvendo a aresta (a cor real permanece visível por dentro)
+        const sheathRadius = radius + 0.52
+        const sheathGeo = new THREE.CylinderGeometry(sheathRadius, sheathRadius, sheathLength, 16, 1, true)
+        const sheathMat = new THREE.MeshBasicMaterial({
+          color: neutralHex,
+          transparent: true,
+          opacity: isLight ? 0.14 : 0.18,
+          side: THREE.DoubleSide,
+          depthWrite: false
+        })
+        const sheathMesh = new THREE.Mesh(sheathGeo, sheathMat)
+        sheathMesh.position.copy(midPoint)
+        sheathMesh.quaternion.copy(cylinderQuat)
+        this.haloGroup.add(sheathMesh)
+
+        // 2. Anéis colares geométricos neutros ao longo da aresta (25%, 50%, 75%) com leve pulso
+        const ringQuat = new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 0, 1),
+          direction
+        )
+        const ringPositions = distance > 12 ? [0.24, 0.5, 0.76] : [0.35, 0.65]
+        ringPositions.forEach((t, idx) => {
+          const collarPos = new THREE.Vector3().lerpVectors(p1, p2, t)
+          const collarGeo = new THREE.TorusGeometry(radius + 0.68, 0.1, 12, 28)
+          const collarMat = new THREE.MeshBasicMaterial({
+            color: neutralHex,
+            transparent: true,
+            opacity: isLight ? 0.78 : 0.88
+          })
+          const collarMesh = new THREE.Mesh(collarGeo, collarMat)
+          collarMesh.position.copy(collarPos)
+          collarMesh.quaternion.copy(ringQuat)
+          collarMesh.userData = { isEdgeSelectionCollar: true, phaseOffset: idx * 0.9 }
+          this.haloGroup.add(collarMesh)
+        })
+      }
+
+      // Se direcionado: Adiciona Seta de Direção (mantém a mesma cor semântica da aresta)
       if (graph.directed) {
         const coneRadius = 0.95
         const coneHeight = 2.1
@@ -456,22 +588,23 @@ export class ThreeSceneManager {
 
         const arrowPos = new THREE.Vector3().lerpVectors(p1, p2, 0.72)
         coneMesh.position.copy(arrowPos)
-        coneMesh.quaternion.setFromUnitVectors(
-          new THREE.Vector3(0, 1, 0),
-          new THREE.Vector3().subVectors(p2, p1).normalize()
-        )
+        coneMesh.quaternion.copy(cylinderQuat)
         edgeObj.add(coneMesh)
       }
 
       this.edgesGroup.add(edgeObj)
       this.edgeMeshes.set(edge.id, edgeObj)
 
-      // Rótulo do Peso da Aresta (se ponderado)
+      // Rótulo do Peso da Aresta (ou marcador geométrico neutro se não-ponderado e selecionada)
       if (graph.weighted) {
         const weightText = String(edge.weight)
-        const weightSprite = this._createWeightBadgeSprite(weightText, status)
+        const weightSprite = this._createWeightBadgeSprite(weightText, status, isSelected)
         weightSprite.position.copy(midPoint).add(new THREE.Vector3(0, 1.8, 0))
         this.edgeLabelsGroup.add(weightSprite)
+      } else if (isSelected) {
+        const markerSprite = this._createUnweightedSelectionSprite()
+        markerSprite.position.copy(midPoint).add(new THREE.Vector3(0, 1.8, 0))
+        this.edgeLabelsGroup.add(markerSprite)
       }
     })
   }
@@ -519,10 +652,10 @@ export class ThreeSceneManager {
       return { base: 0x8b5cf6, emissive: 0x7c3aed } // Violeta
     }
     if (status === 'settled') {
-      return { base: 0x0ea5e9, emissive: 0x0284c7 } // Azul Aço
+      return { base: 0x10b981, emissive: 0x059669 } // Verde Fixado
     }
     if (status === 'path') {
-      return { base: 0x06b6d4, emissive: 0x0891b2 } // Ciano Vibrante
+      return { base: 0x0ea5e9, emissive: 0x0284c7 } // Azul/Ciano Menor Caminho
     }
     if (status === 'source') {
       return { base: 0x4f63f6, emissive: 0x3e51e8 } // Azul Primário
@@ -553,22 +686,23 @@ export class ThreeSceneManager {
     }
   }
 
-  _getEdgeColor(status, isSelected) {
+  /**
+   * Cor semântica pura da aresta — intencionalmente independente de isSelected
+   * para nunca confundir o usuário durante ou fora da execução de algoritmos.
+   */
+  _getEdgeColor(status) {
     const isLight = this.theme === 'light'
-    if (isSelected) {
-      return { base: 0x4f63f6, emissive: 0x3e51e8 }
-    }
     if (status === 'tree') {
-      return { base: 0x10b981, emissive: 0x059669 } // Verde
+      return { base: 0x10b981, emissive: 0x059669 } // Verde (Árvore / AGM)
     }
     if (status === 'cycle') {
-      return { base: 0xef4444, emissive: 0xdc2626 } // Vermelho
+      return { base: 0xef4444, emissive: 0xdc2626 } // Vermelho (Ciclo Rejeitado)
     }
     if (status === 'examining') {
-      return { base: 0xf59e0b, emissive: 0xd97706 } // Âmbar
+      return { base: 0xf59e0b, emissive: 0xd97706 } // Âmbar (Examinando / Relaxando)
     }
     if (status === 'path') {
-      return { base: 0x0ea5e9, emissive: 0x0284c7 } // Ciano
+      return { base: 0x0ea5e9, emissive: 0x0284c7 } // Azul Ciano (Menor Caminho)
     }
     return { base: isLight ? 0x94a3b8 : 0x475569, emissive: isLight ? 0x64748b : 0x1e293b }
   }
@@ -580,7 +714,6 @@ export class ThreeSceneManager {
     canvas.height = 96
     const ctx = canvas.getContext('2d')
 
-    // Estilos de Pill com contraste
     let bgColor = isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(16, 21, 36, 0.92)'
     let borderColor = isLight ? '#d8deeb' : 'rgba(255, 255, 255, 0.2)'
     let textColor = isLight ? '#172033' : '#f8fafc'
@@ -593,7 +726,7 @@ export class ThreeSceneManager {
       bgColor = '#f59e0b'
       borderColor = '#d97706'
       textColor = '#ffffff'
-    } else if (status === 'visited') {
+    } else if (status === 'visited' || status === 'settled') {
       bgColor = '#10b981'
       borderColor = '#059669'
       textColor = '#ffffff'
@@ -623,7 +756,6 @@ export class ThreeSceneManager {
     ctx.fill()
     ctx.stroke()
 
-    // Texto Nítido
     ctx.fillStyle = textColor
     ctx.font = 'bold 28px Inter, sans-serif'
     ctx.textAlign = 'center'
@@ -637,40 +769,42 @@ export class ThreeSceneManager {
     return sprite
   }
 
-  _createWeightBadgeSprite(weightText, status) {
+  _createWeightBadgeSprite(weightText, status, isSelected = false) {
     const isLight = this.theme === 'light'
     const canvas = document.createElement('canvas')
-    canvas.width = 128
-    canvas.height = 80
+    canvas.width = 160
+    canvas.height = 104
     const ctx = canvas.getContext('2d')
 
+    // Cores do badge estritamente derivadas do status do algoritmo (NÃO mudam na seleção)
     let bgColor = isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(16, 21, 36, 0.94)'
     let borderColor = isLight ? '#d8deeb' : 'rgba(255, 255, 255, 0.2)'
     let textColor = isLight ? '#172033' : '#e2e8f0'
 
     if (status === 'tree') {
-      bgColor = isLight ? 'rgba(16, 185, 129, 0.15)' : 'rgba(6, 78, 59, 0.95)'
+      bgColor = isLight ? 'rgba(16, 185, 129, 0.16)' : 'rgba(6, 78, 59, 0.95)'
       borderColor = '#10b981'
       textColor = isLight ? '#059669' : '#34d399'
     } else if (status === 'cycle') {
-      bgColor = isLight ? 'rgba(239, 68, 68, 0.15)' : 'rgba(127, 29, 29, 0.95)'
+      bgColor = isLight ? 'rgba(239, 68, 68, 0.16)' : 'rgba(127, 29, 29, 0.95)'
       borderColor = '#ef4444'
       textColor = isLight ? '#dc2626' : '#f87171'
     } else if (status === 'path') {
-      bgColor = isLight ? 'rgba(14, 165, 233, 0.15)' : 'rgba(14, 116, 144, 0.95)'
+      bgColor = isLight ? 'rgba(14, 165, 233, 0.18)' : 'rgba(14, 116, 144, 0.95)'
       borderColor = '#0ea5e9'
       textColor = isLight ? '#0284c7' : '#ffffff'
     } else if (status === 'examining') {
-      bgColor = isLight ? 'rgba(245, 158, 11, 0.15)' : 'rgba(120, 53, 15, 0.95)'
+      bgColor = isLight ? 'rgba(245, 158, 11, 0.18)' : 'rgba(120, 53, 15, 0.95)'
       borderColor = '#f59e0b'
       textColor = isLight ? '#d97706' : '#fde68a'
     }
 
+    // Pílula central do peso (26..134, 22..82 => 108x60)
     ctx.fillStyle = bgColor
     ctx.strokeStyle = borderColor
     ctx.lineWidth = 2.5
     ctx.beginPath()
-    ctx.roundRect(10, 10, 108, 60, 14)
+    ctx.roundRect(26, 22, 108, 60, 14)
     ctx.fill()
     ctx.stroke()
 
@@ -678,30 +812,97 @@ export class ThreeSceneManager {
     ctx.font = 'bold 28px JetBrains Mono, monospace'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(weightText, 64, 40)
+    ctx.fillText(weightText, 80, 52)
+
+    // Se selecionada: desenha colchetes de mira geométricos neutros [ ] ao redor sem alterar as cores!
+    if (isSelected) {
+      const bracketColor = isLight ? '#0f172a' : '#ffffff'
+      ctx.strokeStyle = bracketColor
+      ctx.lineWidth = 4
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+
+      const xL = 12
+      const xR = 148
+      const yT = 10
+      const yB = 94
+      const arm = 16
+
+      // Canto superior esquerdo
+      ctx.beginPath()
+      ctx.moveTo(xL, yT + arm)
+      ctx.lineTo(xL, yT)
+      ctx.lineTo(xL + arm, yT)
+      ctx.stroke()
+
+      // Canto inferior esquerdo
+      ctx.beginPath()
+      ctx.moveTo(xL, yB - arm)
+      ctx.lineTo(xL, yB)
+      ctx.lineTo(xL + arm, yB)
+      ctx.stroke()
+
+      // Canto superior direito
+      ctx.beginPath()
+      ctx.moveTo(xR - arm, yT)
+      ctx.lineTo(xR, yT)
+      ctx.lineTo(xR, yT + arm)
+      ctx.stroke()
+
+      // Canto inferior direito
+      ctx.beginPath()
+      ctx.moveTo(xR - arm, yB)
+      ctx.lineTo(xR, yB)
+      ctx.lineTo(xR, yB - arm)
+      ctx.stroke()
+    }
 
     const texture = new THREE.CanvasTexture(canvas)
     const material = new THREE.SpriteMaterial({ map: texture, depthTest: false })
     const sprite = new THREE.Sprite(material)
-    sprite.scale.set(3.8, 2.4, 1)
+    sprite.scale.set(4.75, 3.1, 1)
+    return sprite
+  }
+
+  _createUnweightedSelectionSprite() {
+    const isLight = this.theme === 'light'
+    const canvas = document.createElement('canvas')
+    canvas.width = 96
+    canvas.height = 96
+    const ctx = canvas.getContext('2d')
+
+    const bracketColor = isLight ? '#0f172a' : '#ffffff'
+    ctx.strokeStyle = bracketColor
+    ctx.lineWidth = 5
+    ctx.setLineDash([10, 7])
+    ctx.beginPath()
+    ctx.arc(48, 48, 32, 0, Math.PI * 2)
+    ctx.stroke()
+
+    const texture = new THREE.CanvasTexture(canvas)
+    const material = new THREE.SpriteMaterial({ map: texture, depthTest: false })
+    const sprite = new THREE.Sprite(material)
+    sprite.scale.set(2.4, 2.4, 1)
     return sprite
   }
 
   _clearGroup(group) {
     while (group.children.length > 0) {
       const obj = group.children[0]
-      if (obj.geometry) obj.geometry.dispose()
-      if (obj.material) {
-        if (Array.isArray(obj.material)) {
-          obj.material.forEach(m => {
-            if (m.map) m.map.dispose()
-            m.dispose()
-          })
-        } else {
-          if (obj.material.map) obj.material.map.dispose()
-          obj.material.dispose()
+      obj.traverse(child => {
+        if (child.geometry) child.geometry.dispose()
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => {
+              if (m.map) m.map.dispose()
+              m.dispose()
+            })
+          } else {
+            if (child.material.map) child.material.map.dispose()
+            child.material.dispose()
+          }
         }
-      }
+      })
       group.remove(obj)
     }
   }
@@ -716,13 +917,13 @@ export class ThreeSceneManager {
 
     this.cameraTarget.copy(center)
     this.spherical.radius = maxDim * 1.8
-    this.updateCameraPosition()
+    this.updateCameraPosition(true)
   }
 
   resetCamera() {
     this.cameraTarget.set(0, 0, 0)
     this.spherical.set(85, Math.PI / 3, Math.PI / 4)
-    this.updateCameraPosition()
+    this.updateCameraPosition(true)
   }
 
   toggleAutoRotate() {
@@ -735,13 +936,20 @@ export class ThreeSceneManager {
 
     if (this.autoRotate && !this.isDragging && !this.isPanning) {
       this.spherical.theta += 0.003
-      this.updateCameraPosition()
+      this.updateCameraPosition(false)
     }
 
-    // Orientar anéis de halo para a câmera se existirem
+    const now = performance.now() * 0.004
+
+    // Orienta halos de nós para a câmera e anima sutilmente os colares geométricos da aresta selecionada
     if (this.haloGroup.children.length > 0) {
       this.haloGroup.children.forEach(halo => {
-        halo.lookAt(this.camera.position)
+        if (halo.userData?.isBillboardHalo) {
+          halo.lookAt(this.camera.position)
+        } else if (halo.userData?.isEdgeSelectionCollar) {
+          const pulse = 1 + 0.1 * Math.sin(now + (halo.userData.phaseOffset || 0))
+          halo.scale.set(pulse, pulse, 1)
+        }
       })
     }
 
@@ -753,6 +961,11 @@ export class ThreeSceneManager {
   destroy() {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId)
+    }
+
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect()
+      this.resizeObserver = null
     }
 
     const dom = this.renderer?.domElement

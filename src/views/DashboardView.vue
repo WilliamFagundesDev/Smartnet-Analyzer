@@ -12,7 +12,7 @@
           <span>Editor de Grafos</span>
         </router-link>
         <router-link to="/algorithms" class="btn btn-primary">
-          <Binary class="icon-sm" />
+          <Play class="icon-sm" style="fill: currentColor;" />
           <span>Laboratório de Algoritmos</span>
         </router-link>
       </div>
@@ -152,7 +152,7 @@
 import { useRouter } from 'vue-router'
 import {
   Network,
-  Binary,
+  Play,
   Box,
   Layers,
   Share2,

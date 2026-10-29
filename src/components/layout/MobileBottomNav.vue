@@ -5,11 +5,16 @@
       :key="item.path"
       :to="item.path"
       class="mobile-nav-item"
+      :class="{ 'is-featured': item.isFeatured }"
       active-class="is-active"
       @click="closeMobileDrawer"
     >
       <div class="nav-icon-wrapper">
-        <component :is="item.icon" class="mobile-icon" />
+        <component
+          :is="item.icon"
+          class="mobile-icon"
+          :class="{ 'play-icon': item.isFeatured }"
+        />
       </div>
       <span class="mobile-label">{{ item.label }}</span>
     </router-link>
@@ -34,7 +39,7 @@ import {
   LayoutDashboard,
   Network,
   Box,
-  Binary,
+  Play,
   Menu
 } from 'lucide-vue-next'
 import { useMobileNav } from '../../composables/useMobileNav.js'
@@ -45,7 +50,7 @@ const primaryNav = [
   { path: '/', label: 'Visão', icon: LayoutDashboard },
   { path: '/editor', label: 'Editor', icon: Network },
   { path: '/explorer', label: '3D', icon: Box },
-  { path: '/algorithms', label: 'Algoritmos', icon: Binary }
+  { path: '/algorithms', label: 'Algoritmos', icon: Play, isFeatured: true }
 ]
 </script>
 
@@ -111,6 +116,26 @@ const primaryNav = [
   .mobile-nav-item.is-active .nav-icon-wrapper {
     background: var(--color-primary-bg);
     color: var(--color-primary);
+  }
+
+  /* Item Destacado (Algoritmos) em Verde */
+  .mobile-nav-item.is-featured {
+    color: var(--color-success);
+  }
+
+  .mobile-nav-item.is-featured .play-icon {
+    fill: currentColor;
+    transform: translateX(0.5px);
+  }
+
+  .mobile-nav-item.is-featured.is-active {
+    color: var(--color-success);
+    font-weight: 700;
+  }
+
+  .mobile-nav-item.is-featured.is-active .nav-icon-wrapper {
+    background: var(--color-success-bg);
+    color: var(--color-success);
   }
 }
 </style>

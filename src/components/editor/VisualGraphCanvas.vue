@@ -221,15 +221,41 @@
               class="edge-hitbox"
             />
 
-            <!-- Linha visível da aresta -->
+            <!-- Halo neutro sutil no hover (sem alterar a cor da aresta) -->
+            <line
+              :x1="e.x1"
+              :y1="e.y1"
+              :x2="e.x2"
+              :y2="e.y2"
+              class="edge-hover-halo"
+            />
+
+            <!-- Moldura Geométrica de Seleção (trilho tracejado neutro sem alterar a cor da aresta) -->
+            <template v-if="selectedEdgeId === e.id">
+              <line
+                :x1="e.x1"
+                :y1="e.y1"
+                :x2="e.x2"
+                :y2="e.y2"
+                class="edge-selection-casing"
+              />
+              <line
+                :x1="e.x1"
+                :y1="e.y1"
+                :x2="e.x2"
+                :y2="e.y2"
+                class="edge-selection-gap"
+              />
+            </template>
+
+            <!-- Linha visível da aresta (cor original preservada) -->
             <line
               :x1="e.x1"
               :y1="e.y1"
               :x2="e.x2"
               :y2="e.y2"
               class="edge-line"
-              :class="{ 'is-selected': selectedEdgeId === e.id }"
-              :marker-end="graph.directed ? (selectedEdgeId === e.id ? 'url(#arrow-selected)' : 'url(#arrow)') : null"
+              :marker-end="graph.directed ? 'url(#arrow)' : null"
             />
 
             <!-- Badge / Pílula de Peso no Centro da Aresta -->
@@ -240,18 +266,34 @@
               @dblclick.stop="startEditWeight(e)"
             >
               <rect
+                v-if="selectedEdgeId === e.id"
+                x="-18"
+                y="-14"
+                width="36"
+                height="28"
+                rx="7"
+                class="weight-badge-selection-ring"
+              />
+              <rect
                 x="-14"
                 y="-10"
                 width="28"
                 height="20"
                 rx="5"
                 class="weight-badge-rect"
-                :class="{ 'is-selected': selectedEdgeId === e.id }"
               />
               <text y="3" text-anchor="middle" class="weight-badge-text font-mono">
                 {{ e.weight }}
               </text>
             </g>
+            <!-- Retículo geométrico neutro caso não seja ponderado e esteja selecionada -->
+            <circle
+              v-else-if="selectedEdgeId === e.id"
+              :cx="e.midX"
+              :cy="e.midY"
+              r="7"
+              class="unweighted-selection-reticle"
+            />
           </g>
         </g>
 
@@ -1253,22 +1295,41 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
+.edge-hover-halo {
+  stroke: var(--text-primary);
+  stroke-opacity: 0;
+  stroke-width: 10;
+  stroke-linecap: round;
+  pointer-events: none;
+  transition: stroke-opacity var(--transition-fast);
+}
+
+.edge-group:hover:not(.is-selected) .edge-hover-halo {
+  stroke-opacity: 0.1;
+}
+
+.edge-selection-casing {
+  stroke: var(--text-primary);
+  stroke-opacity: 0.6;
+  stroke-width: 9.5;
+  stroke-dasharray: 6 4;
+  stroke-linecap: round;
+  pointer-events: none;
+  animation: dash 1.2s linear infinite;
+}
+
+.edge-selection-gap {
+  stroke: var(--bg-surface);
+  stroke-width: 5.5;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
 .edge-line {
   stroke: var(--text-muted);
   stroke-width: 2;
   stroke-linecap: round;
-  transition: stroke var(--transition-fast), stroke-width var(--transition-fast);
   cursor: pointer;
-}
-
-.edge-group:hover .edge-line {
-  stroke: var(--color-primary);
-  stroke-width: 3;
-}
-
-.edge-line.is-selected {
-  stroke: var(--color-primary);
-  stroke-width: 3.5;
 }
 
 .arrow-head {
@@ -1279,17 +1340,31 @@ onBeforeUnmount(() => {
   fill: var(--color-primary);
 }
 
+.weight-badge-selection-ring {
+  fill: none;
+  stroke: var(--text-primary);
+  stroke-opacity: 0.72;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
+.unweighted-selection-reticle {
+  fill: var(--bg-surface);
+  fill-opacity: 0.85;
+  stroke: var(--text-primary);
+  stroke-opacity: 0.75;
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+  pointer-events: none;
+}
+
 .weight-badge-rect {
   fill: var(--bg-surface);
   stroke: var(--border-subtle);
   stroke-width: 1.2;
   cursor: pointer;
   transition: all var(--transition-fast);
-}
-
-.weight-badge-rect.is-selected {
-  border-color: var(--color-primary);
-  stroke: var(--color-primary);
 }
 
 .weight-badge-text {

@@ -11,11 +11,18 @@
           :key="item.path"
           :to="item.path"
           class="nav-link"
-          :class="{ 'collapsed-link': isCollapsed }"
+          :class="{
+            'collapsed-link': isCollapsed,
+            'nav-link-featured': item.isFeatured
+          }"
           :title="isCollapsed ? item.label : ''"
         >
           <div class="icon-wrapper">
-            <component :is="item.icon" class="nav-icon" />
+            <component
+              :is="item.icon"
+              class="nav-icon"
+              :class="{ 'play-icon': item.isFeatured }"
+            />
           </div>
           <span v-if="!isCollapsed" class="nav-label">{{ item.label }}</span>
           <div v-if="isCollapsed" class="sidebar-tooltip">
@@ -54,7 +61,8 @@ import {
   Cpu,
   BookOpen,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Play
 } from 'lucide-vue-next'
 import { useLayout } from '../../composables/useLayout.js'
 
@@ -65,7 +73,7 @@ const navItems = [
   { path: '/', label: 'Visão Geral', icon: LayoutDashboard },
   { path: '/editor', label: 'Editor de Grafos', icon: Network },
   { path: '/explorer', label: 'Visualização 3D', icon: Box },
-  { path: '/algorithms', label: 'Laboratório de Algoritmos', icon: Binary },
+  { path: '/algorithms', label: 'Laboratório de Algoritmos', icon: Play, isFeatured: true },
   { path: '/structures', label: 'Estrutura de Dados', icon: Database },
   { path: '/complexity', label: 'Análise de Complexidade', icon: Cpu },
   { path: '/docs', label: 'Documentação', icon: BookOpen }
@@ -115,6 +123,7 @@ const navItems = [
   font-size: var(--text-sm);
   text-decoration: none;
   transition: all var(--transition-fast);
+  border: 1px solid transparent;
 }
 
 .nav-link:hover {
@@ -139,6 +148,68 @@ const navItems = [
   width: 3px;
   background: var(--color-primary);
   border-radius: 0 var(--radius-full) var(--radius-full) 0;
+}
+
+/* Item Destacado (Função Principal: Laboratório de Algoritmos) */
+.nav-link.nav-link-featured {
+  background: rgba(16, 185, 129, 0.05);
+  border-color: rgba(16, 185, 129, 0.22);
+  color: #059669;
+  font-weight: 600;
+}
+
+.nav-link.nav-link-featured .play-icon {
+  fill: currentColor;
+  transform: translateX(1px);
+}
+
+.nav-link.nav-link-featured:hover {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.38);
+  color: #047857;
+}
+
+/* Estado Ativo do Item Destacado: Verde Vibrante com Indicador */
+.nav-link.nav-link-featured.router-link-exact-active,
+.nav-link.nav-link-featured.router-link-active {
+  background: rgba(16, 185, 129, 0.14) !important;
+  color: #047857 !important;
+  border-color: rgba(16, 185, 129, 0.42) !important;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.12);
+}
+
+.nav-link.nav-link-featured.router-link-exact-active::before,
+.nav-link.nav-link-featured.router-link-active::before {
+  background: var(--color-success) !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+/* Suporte Tema Escuro */
+[data-theme="dark"] .nav-link.nav-link-featured {
+  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(52, 211, 153, 0.25);
+  color: #34d399;
+}
+
+[data-theme="dark"] .nav-link.nav-link-featured:hover {
+  background: rgba(52, 211, 153, 0.16);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .nav-link.nav-link-featured.router-link-exact-active,
+[data-theme="dark"] .nav-link.nav-link-featured.router-link-active {
+  background: rgba(52, 211, 153, 0.2) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.5) !important;
+  box-shadow: 0 1px 8px rgba(52, 211, 153, 0.16);
+}
+
+[data-theme="dark"] .nav-link.nav-link-featured.router-link-exact-active::before,
+[data-theme="dark"] .nav-link.nav-link-featured.router-link-active::before {
+  background: #34d399 !important;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.7);
 }
 
 .icon-wrapper {

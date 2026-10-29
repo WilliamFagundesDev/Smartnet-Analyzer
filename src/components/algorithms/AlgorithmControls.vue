@@ -1,18 +1,63 @@
 <template>
   <div class="algorithm-controls card-elevated">
-    <!-- Etapa A: Seleção do Algoritmo em Seletor Segmentado Moderno -->
+    <!-- Cabeçalho de Multi-Seleção Simultânea -->
+    <div class="selection-top-bar">
+      <div class="selection-info">
+        <span class="selection-title">Algoritmos Ativos</span>
+        <span class="selection-hint">
+          Clique nos cards para combinar <strong>2, 3 ou os 4 algoritmos</strong> em modelos 3D simultâneos
+        </span>
+      </div>
+
+      <div class="selection-quick-actions">
+        <span class="badge font-mono" :class="isMultiMode ? 'badge-blue' : 'badge-neutral'">
+          {{ selectedAlgorithms.length }} {{ selectedAlgorithms.length === 1 ? 'selecionado' : 'selecionados' }}
+        </span>
+
+        <button
+          type="button"
+          class="quick-select-btn"
+          :class="{ active: selectedAlgorithms.length === 4 }"
+          @click="selectAllAlgorithms"
+          :disabled="selectedAlgorithms.length === 4"
+          title="Selecionar os 4 algoritmos para comparação 3D simultânea"
+        >
+          <Layers class="icon-xs" />
+          <span>Todos os 4</span>
+        </button>
+
+        <button
+          v-if="isMultiMode"
+          type="button"
+          class="quick-select-btn"
+          @click="selectOnlyAlgorithm(selectedAlgorithms[0])"
+          title="Voltar para execução individual de 1 algoritmo"
+        >
+          <span>Individual (1)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Etapa A: Grade Multi-Seletora dos 4 Algoritmos -->
     <div class="algo-selection-bar">
       <div class="algo-segmented-grid">
         <button
-          v-for="algo in algorithms"
+          v-for="algo in algorithmsCatalog"
           :key="algo.key"
           class="algo-card-btn"
-          :class="{ active: selectedAlgorithm === algo.key }"
-          @click="selectAlgo(algo.key)"
+          :class="{ active: isSelected(algo.key) }"
+          :style="isSelected(algo.key) ? { '--algo-accent': algo.accent } : {}"
+          @click="toggleAlgorithm(algo.key)"
           type="button"
+          :aria-pressed="isSelected(algo.key)"
         >
           <div class="algo-btn-top">
-            <span class="algo-name">{{ algo.name }}</span>
+            <div class="algo-title-cluster">
+              <span class="algo-check-box" :class="{ checked: isSelected(algo.key) }">
+                <Check v-if="isSelected(algo.key)" class="check-icon" />
+              </span>
+              <span class="algo-name">{{ algo.name }}</span>
+            </div>
             <span class="algo-type-tag">{{ algo.category }}</span>
           </div>
           <span class="algo-objective">{{ algo.objective }}</span>
@@ -25,7 +70,7 @@
       <!-- Parâmetros Contextuais -->
       <div class="params-container">
         <!-- Vértice de Origem (DFS, BFS, Dijkstra) -->
-        <div v-if="selectedAlgorithm !== 'KRUSKAL'" class="param-group">
+        <div v-if="needsStartVertex" class="param-group">
           <label class="param-label" for="algo-start-vertex">
             Vértice Inicial (Origem):
           </label>
@@ -42,8 +87,8 @@
           </div>
         </div>
 
-        <!-- Destino Opcional (BFS, Dijkstra) -->
-        <div v-if="selectedAlgorithm === 'BFS' || selectedAlgorithm === 'DIJKSTRA'" class="param-group">
+        <!-- Destino Opcional (BFS, Dijkstra ou comparação multi-algoritmo com origem) -->
+        <div v-if="needsTargetVertex" class="param-group">
           <label class="param-label" for="algo-target-vertex">
             Vértice Destino (Opcional):
           </label>
@@ -62,40 +107,40 @@
         </div>
 
         <!-- DFS: Opções Avançadas Expansíveis -->
-        <div v-if="selectedAlgorithm === 'DFS'" class="param-group advanced-toggle-group">
+        <div v-if="isSelected('DFS')" class="param-group advanced-toggle-group">
           <button
             type="button"
             class="advanced-toggle-btn"
             @click="showAdvanced = !showAdvanced"
           >
-            <span>Opções avançadas</span>
+            <span>Opções DFS</span>
             <ChevronDown class="icon-xs" :class="{ 'rotate-180': showAdvanced }" />
           </button>
 
           <div v-if="showAdvanced" class="advanced-panel">
             <label class="checkbox-label">
               <input type="checkbox" v-model="exploreAllComponents" />
-              <span>Explorar todos os componentes desconexos (Floresta DFS)</span>
+              <span>Explorar componentes desconexos (Floresta DFS)</span>
             </label>
           </div>
         </div>
 
         <!-- Kruskal: Mensagem Contextual e Conversão Rápida -->
-        <div v-if="selectedAlgorithm === 'KRUSKAL'" class="kruskal-info-group">
-          <div class="kruskal-info-text">
+        <div v-if="isSelected('KRUSKAL')" class="kruskal-info-group">
+          <div v-if="!isMultiMode" class="kruskal-info-text">
             Kruskal processa globalmente todas as arestas da rede em ordem crescente de peso via Union-Find.
           </div>
           <div v-if="graph.directed" class="kruskal-alert-pill">
             <AlertTriangle class="icon-xs text-amber" />
             <span>Kruskal requer grafo não-direcionado.</span>
-            <button class="btn btn-secondary btn-xs" @click="setDirected(false)">
+            <button type="button" class="btn btn-secondary btn-xs" @click="handleConvertUndirected">
               Converter para Não-Direcionado
             </button>
           </div>
         </div>
 
         <!-- Dijkstra: Alerta de Pesos Negativos -->
-        <div v-if="selectedAlgorithm === 'DIJKSTRA' && hasNegativeWeights" class="dijkstra-alert-pill">
+        <div v-if="isSelected('DIJKSTRA') && hasNegativeWeights" class="dijkstra-alert-pill">
           <AlertTriangle class="icon-xs text-red" />
           <span>Dijkstra rejeita pesos negativos. Remova valores negativos no Editor.</span>
         </div>
@@ -105,21 +150,23 @@
       <div class="actions-container">
         <!-- Ação Principal -->
         <button
+          type="button"
           class="btn btn-primary btn-execute"
-          @click="runStepByStep"
-          :disabled="isBlocked"
-          title="Executar algoritmo com visualização animada"
+          @click="runStepByStep(true)"
+          :disabled="isAllBlocked"
+          :title="isMultiMode ? `Executar ${selectedAlgorithms.length} algoritmos simultaneamente em 3D` : 'Executar algoritmo com visualização animada'"
         >
           <Play class="icon-sm" />
-          <span>Executar Simulação</span>
+          <span>{{ isMultiMode ? `Executar ${selectedAlgorithms.length} Simultâneos` : 'Executar Simulação' }}</span>
         </button>
 
         <!-- Ação Direta Instantânea -->
         <button
+          type="button"
           class="btn btn-secondary btn-instant"
           @click="runInstant"
-          :disabled="isBlocked"
-          title="Calcular resultado instantaneamente"
+          :disabled="isAllBlocked"
+          title="Calcular resultados instantaneamente"
         >
           <Zap class="icon-xs" />
           <span>Resultado Imediato</span>
@@ -127,7 +174,8 @@
 
         <!-- Limpar -->
         <button
-          v-if="result || events.length > 0"
+          v-if="hasAnyRun || totalSteps > 0"
+          type="button"
           class="btn btn-ghost btn-clear"
           @click="clearResult"
           title="Limpar simulação e destaques"
@@ -138,12 +186,13 @@
       </div>
     </div>
 
-    <!-- Etapa D: Barra do Player Passo a Passo (Revelada quando há eventos) -->
-    <div v-if="events.length > 0" class="player-timeline-wrapper">
+    <!-- Etapa D: Barra do Player Passo a Passo Sincronizado -->
+    <div v-if="totalSteps > 0" class="player-timeline-wrapper">
       <div class="player-controls-strip">
         <!-- Botões de Transporte -->
         <div class="transport-group">
           <button
+            type="button"
             class="player-btn"
             @click="reset"
             title="Ir para o primeiro passo"
@@ -153,6 +202,7 @@
           </button>
 
           <button
+            type="button"
             class="player-btn"
             @click="stepPrev"
             :disabled="currentStepIndex <= 0"
@@ -163,10 +213,11 @@
           </button>
 
           <button
+            type="button"
             class="player-btn btn-play-pause"
             :class="{ 'is-playing': isPlaying }"
             @click="isPlaying ? pause() : play()"
-            :title="isPlaying ? 'Pausar animação' : 'Reproduzir animação'"
+            :title="isPlaying ? 'Pausar animação simultânea' : 'Reproduzir animação simultânea'"
             aria-label="Reproduzir ou pausar"
           >
             <Pause v-if="isPlaying" class="icon-sm" />
@@ -174,9 +225,10 @@
           </button>
 
           <button
+            type="button"
             class="player-btn"
             @click="stepNext"
-            :disabled="currentStepIndex >= events.length - 1"
+            :disabled="currentStepIndex >= totalSteps - 1"
             title="Próximo passo"
             aria-label="Próximo passo"
           >
@@ -184,16 +236,19 @@
           </button>
         </div>
 
-        <!-- Timeline e Indicador de Progresso -->
+        <!-- Timeline e Indicador de Progresso Sincronizado -->
         <div class="timeline-center">
           <div class="timeline-meta">
             <span class="status-indicator">
               <span class="status-dot" :class="statusDotClass"></span>
-              <span class="status-text">{{ executionStateText }}</span>
+              <span class="status-text">
+                {{ executionStateText }}
+                <template v-if="isMultiMode">&middot; {{ selectedAlgorithms.length }} Modelos Sincronizados</template>
+              </span>
             </span>
 
             <span class="step-counter font-mono">
-              Passo <strong>{{ currentStepIndex + 1 }}</strong> de <strong>{{ events.length }}</strong>
+              Passo <strong>{{ currentStepIndex + 1 }}</strong> de <strong>{{ totalSteps }}</strong>
               ({{ progressPercent }}%)
             </span>
           </div>
@@ -204,8 +259,8 @@
             role="progressbar"
             :aria-valuenow="currentStepIndex + 1"
             aria-valuemin="1"
-            :aria-valuemax="events.length"
-            title="Clique na barra para navegar diretamente para um passo"
+            :aria-valuemax="totalSteps"
+            title="Clique na barra para navegar diretamente para qualquer passo em todos os modelos 3D"
           >
             <div
               class="timeline-fill"
@@ -225,16 +280,37 @@
             <option :value="1000">0.5x</option>
             <option :value="600">1.0x</option>
             <option :value="300">2.0x</option>
+            <option :value="160">3.5x</option>
           </select>
         </div>
       </div>
 
-      <!-- Explicação Didática do Passo Atual (derivada do estado real) -->
-      <div v-if="currentStepEvent" class="step-explanation-banner">
+      <!-- Modo Individual: Faixa de Explicação Direta -->
+      <div v-if="!isMultiMode && currentStepEvent" class="step-explanation-banner">
         <span class="step-type-pill font-mono" :class="getStepBadgeClass(currentStepEvent.type)">
           {{ currentStepEvent.type }}
         </span>
         <span class="step-description-text">{{ currentStepEvent.description }}</span>
+      </div>
+
+      <!-- Modo Simultâneo (2, 3 ou 4): Resumo Rápido de Progresso de Cada Algoritmo -->
+      <div v-else-if="isMultiMode" class="multi-progress-pills">
+        <div
+          v-for="algoKey in selectedAlgorithms"
+          :key="algoKey"
+          class="mini-algo-progress font-mono"
+          :class="getAlgoExecutionStatus(algoKey)"
+        >
+          <span class="mini-algo-dot" :style="{ background: getAlgoAccent(algoKey) }"></span>
+          <span class="mini-algo-name">{{ getAlgoName(algoKey) }}:</span>
+          <span v-if="getAlgoRun(algoKey)?.error" class="text-amber">Incompatível</span>
+          <span v-else-if="getAlgoExecutionStatus(algoKey) === 'completed'" class="text-green">
+            Concluído ({{ getAlgoRun(algoKey)?.events?.length || 0 }}/{{ getAlgoRun(algoKey)?.events?.length || 0 }})
+          </span>
+          <span v-else>
+            {{ getAlgoStepIndex(algoKey) + 1 }}/{{ getAlgoRun(algoKey)?.events?.length || 0 }}
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -251,23 +327,33 @@ import {
   ChevronDown,
   Zap,
   RotateCcw,
-  AlertTriangle
+  AlertTriangle,
+  Check,
+  Layers
 } from 'lucide-vue-next'
 import { useGraph } from '../../composables/useGraph.js'
 import { useAlgorithmRunner } from '../../composables/useAlgorithmRunner.js'
 
 const { graph, setDirected } = useGraph()
 const {
-  selectedAlgorithm,
+  algorithmsCatalog,
+  selectedAlgorithms,
+  isMultiMode,
   startVertexId,
   targetVertexId,
   exploreAllComponents,
-  result,
-  events,
+  hasAnyRun,
+  totalSteps,
   currentStepIndex,
   currentStepEvent,
   isPlaying,
   playbackSpeed,
+  toggleAlgorithm,
+  selectOnlyAlgorithm,
+  selectAllAlgorithms,
+  getAlgoRun,
+  getAlgoStepIndex,
+  getAlgoExecutionStatus,
   runInstant,
   runStepByStep,
   play,
@@ -281,77 +367,84 @@ const {
 
 const showAdvanced = ref(false)
 
-const algorithms = [
-  {
-    key: 'DFS',
-    name: 'DFS',
-    category: 'Profundidade',
-    objective: 'Exploração exaustiva e conectividade'
-  },
-  {
-    key: 'BFS',
-    name: 'BFS',
-    category: 'Largura',
-    objective: 'Menor número de saltos em arestas'
-  },
-  {
-    key: 'DIJKSTRA',
-    name: 'Dijkstra',
-    category: 'Menor Custo',
-    objective: 'Caminho ótimo ponderado (Min-Heap)'
-  },
-  {
-    key: 'KRUSKAL',
-    name: 'Kruskal',
-    category: 'Árvore Mínima',
-    objective: 'Árvore Geradora Mínima global (DSU)'
-  }
-]
-
-function selectAlgo(key) {
-  selectedAlgorithm.value = key
-  clearResult()
+function isSelected(key) {
+  return selectedAlgorithms.value.includes(key)
 }
+
+function getAlgoMeta(key) {
+  return algorithmsCatalog.find(a => a.key === key) || algorithmsCatalog[0]
+}
+
+function getAlgoName(key) {
+  return getAlgoMeta(key).name
+}
+
+function getAlgoAccent(key) {
+  return getAlgoMeta(key).accent
+}
+
+function handleConvertUndirected() {
+  setDirected(false)
+}
+
+const needsStartVertex = computed(() => {
+  return selectedAlgorithms.value.some(k => k !== 'KRUSKAL')
+})
+
+const needsTargetVertex = computed(() => {
+  return (
+    selectedAlgorithms.value.includes('BFS') ||
+    selectedAlgorithms.value.includes('DIJKSTRA') ||
+    (isMultiMode.value && needsStartVertex.value)
+  )
+})
 
 const hasNegativeWeights = computed(() => {
   return graph.value.edges.some(e => Number(e.weight) < 0)
 })
 
-const isBlocked = computed(() => {
+function isSingleAlgoBlocked(key) {
   if (graph.value.vertices.length === 0) return true
-  if (selectedAlgorithm.value === 'KRUSKAL' && graph.value.directed) return true
-  if (selectedAlgorithm.value === 'DIJKSTRA' && hasNegativeWeights.value) return true
+  if (key === 'KRUSKAL' && graph.value.directed) return true
+  if (key === 'DIJKSTRA' && hasNegativeWeights.value) return true
   return false
+}
+
+// Bloqueia apenas se NENHUM algoritmo selecionado puder executar
+const isAllBlocked = computed(() => {
+  if (graph.value.vertices.length === 0 || selectedAlgorithms.value.length === 0) return true
+  return selectedAlgorithms.value.every(k => isSingleAlgoBlocked(k))
 })
 
 const progressPercent = computed(() => {
-  if (events.value.length === 0) return 0
-  return Math.round(((currentStepIndex.value + 1) / events.value.length) * 100)
+  if (totalSteps.value === 0) return 0
+  return Math.round(((currentStepIndex.value + 1) / totalSteps.value) * 100)
 })
 
 const executionStateText = computed(() => {
   if (isPlaying.value) return 'Executando'
-  if (currentStepIndex.value >= events.value.length - 1 && events.value.length > 0) return 'Concluído'
+  if (currentStepIndex.value >= totalSteps.value - 1 && totalSteps.value > 0) return 'Concluído'
   if (currentStepIndex.value >= 0) return 'Pausado'
   return 'Pronto'
 })
 
 const statusDotClass = computed(() => {
   if (isPlaying.value) return 'dot-running'
-  if (currentStepIndex.value >= events.value.length - 1 && events.value.length > 0) return 'dot-completed'
+  if (currentStepIndex.value >= totalSteps.value - 1 && totalSteps.value > 0) return 'dot-completed'
   return 'dot-paused'
 })
 
 function handleProgressClick(event) {
+  if (totalSteps.value === 0) return
   const rect = event.currentTarget.getBoundingClientRect()
   const clickX = event.clientX - rect.left
   const ratio = Math.max(0, Math.min(1, clickX / rect.width))
-  const targetIndex = Math.floor(ratio * events.value.length)
+  const targetIndex = Math.min(totalSteps.value - 1, Math.floor(ratio * totalSteps.value))
   jumpToStep(targetIndex)
 }
 
 function getStepBadgeClass(type) {
-  if (type === 'TREE_EDGE' || type === 'ACCEPT_EDGE' || type === 'TARGET_REACHED' || type === 'COMPLETE') {
+  if (type === 'TREE_EDGE' || type === 'ACCEPT_EDGE' || type === 'TARGET_REACHED' || type === 'DESTINATION_REACHED' || type === 'COMPLETE') {
     return 'badge-green'
   }
   if (type === 'REJECT_CYCLE' || type === 'BACK_EDGE') {
@@ -379,7 +472,74 @@ function getStepBadgeClass(type) {
   box-shadow: var(--shadow-xs);
 }
 
-/* 1. Grade Segmentada dos Algoritmos */
+/* Barra Superior de Multi-Seleção */
+.selection-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  flex-wrap: wrap;
+}
+
+.selection-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+}
+
+.selection-title {
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+}
+
+.selection-hint {
+  font-size: 0.73rem;
+  color: var(--text-secondary);
+}
+
+.selection-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.badge-neutral {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.quick-select-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.quick-select-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+.quick-select-btn.active {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  border-color: rgba(79, 99, 246, 0.35);
+}
+
+/* 1. Grade Multi-Selecionável dos 4 Algoritmos */
 .algo-segmented-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -387,6 +547,7 @@ function getStepBadgeClass(type) {
 }
 
 .algo-card-btn {
+  --algo-accent: var(--color-primary);
   padding: 0.65rem 0.85rem;
   border-radius: var(--radius-md);
   background: var(--bg-card);
@@ -395,19 +556,20 @@ function getStepBadgeClass(type) {
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  gap: 0.2rem;
+  gap: 0.25rem;
   transition: all var(--transition-fast);
 }
 
 .algo-card-btn:hover {
   background: var(--bg-card-hover);
   border-color: var(--border-light);
+  transform: translateY(-1px);
 }
 
 .algo-card-btn.active {
-  background: var(--color-primary-bg);
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 1px var(--color-primary);
+  background: color-mix(in srgb, var(--algo-accent) 8%, var(--bg-card));
+  border-color: var(--algo-accent);
+  box-shadow: 0 0 0 1px var(--algo-accent);
 }
 
 .algo-btn-top {
@@ -415,6 +577,38 @@ function getStepBadgeClass(type) {
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  gap: 0.4rem;
+}
+
+.algo-title-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.algo-check-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 1.5px solid var(--border-light);
+  background: var(--bg-surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.algo-check-box.checked {
+  background: var(--algo-accent);
+  border-color: var(--algo-accent);
+  color: #ffffff;
+}
+
+.check-icon {
+  width: 11px;
+  height: 11px;
+  stroke-width: 3;
 }
 
 .algo-name {
@@ -425,7 +619,7 @@ function getStepBadgeClass(type) {
 }
 
 .algo-card-btn.active .algo-name {
-  color: var(--color-primary);
+  color: var(--algo-accent);
 }
 
 .algo-type-tag {
@@ -438,8 +632,8 @@ function getStepBadgeClass(type) {
 }
 
 .algo-card-btn.active .algo-type-tag {
-  color: var(--color-primary);
-  background: rgba(79, 99, 246, 0.12);
+  color: var(--algo-accent);
+  background: color-mix(in srgb, var(--algo-accent) 14%, transparent);
 }
 
 .algo-objective {
@@ -542,6 +736,7 @@ function getStepBadgeClass(type) {
   border: 1px solid rgba(245, 158, 11, 0.3);
   padding: 0.25rem 0.6rem;
   border-radius: var(--radius-md);
+  flex-wrap: wrap;
 }
 
 .dijkstra-alert-pill {
@@ -703,7 +898,7 @@ function getStepBadgeClass(type) {
   cursor: pointer;
 }
 
-/* Faixa de Explicação */
+/* Faixa de Explicação (Modo Individual) */
 .step-explanation-banner {
   background: var(--bg-surface);
   border-left: 3px solid var(--color-primary);
@@ -726,6 +921,39 @@ function getStepBadgeClass(type) {
   font-size: 0.76rem;
   color: var(--text-primary);
   line-height: 1.4;
+}
+
+/* Resumo Compacto dos Algoritmos Simultâneos */
+.multi-progress-pills {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+  padding-top: 0.15rem;
+}
+
+.mini-algo-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.mini-algo-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.mini-algo-name {
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .rotate-180 {
